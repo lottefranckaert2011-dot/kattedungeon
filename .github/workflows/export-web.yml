@@ -1,0 +1,32 @@
+name: Web build (CrazyGames)
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  export-web:
+    runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: "4.3"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot + web export templates
+        run: |
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          curl -sSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          unzip -q -j templates.tpz "templates/web_nothreads_*" "templates/version.txt" -d "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          rm templates.tpz
+
+      - name: Export
+        run: GODOT="$PWD/godot" tools/export_web.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zombie-dorp-web
+          path: build/web

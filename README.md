@@ -1,0 +1,102 @@
+# Zombie Dorp 🧟 — pixel zombie survival
+
+**Verzamel spullen, bouw barricades en overleef zo lang mogelijk.**
+Een top-down pixel-art survivalspel gemaakt in **Godot 4.3**, klaar om te uploaden op **CrazyGames** (HTML5).
+
+Overdag hak je bomen, sla je rotsen kapot en doorzoek je huizen in het dorp.
+Als de nacht valt, luidt de klok en schuifelen de zombies over de wegen het dorp in.
+Zet barricades, stenen muren, spijkervallen, geschuttorens en kampvuren neer, en hou het zo lang mogelijk vol.
+
+## Spelen
+
+| Actie | Toetsenbord / muis | Telefoon / tablet |
+|---|---|---|
+| Lopen | WASD / ZQSD / pijltjes | joystick links |
+| Bijl (zombies, bomen, rotsen, kratten) | linkermuisknop / spatie | bijl-knop |
+| Schieten (kost kogels) | rechtermuisknop / F | pistool-knop (mikt automatisch) |
+| Bouwen | 1-5 kiezen, klik om te plaatsen, rechts klikken stopt | tik een gebouw onderaan, dan **BOUW** |
+| Huis / krat doorzoeken, geschut bijvullen | E | E-knop |
+| Eten (+30 HP) | R | appel-knop |
+| Meteen de nacht starten (bonuspunten) | N | knop bovenaan |
+| Pauze | P / Esc | pauzeknop |
+
+### Gebouwen
+
+| # | Gebouw | Kost | Wat doet het? |
+|---|---|---|---|
+| 1 | Barricade | 4 hout | blokkeert zombies (80 HP) |
+| 2 | Stenen muur | 4 steen + 1 hout | heel sterke muur (220 HP) |
+| 3 | Spijkerval | 2 hout + 2 schroot | zombies lopen erover en raken gewond |
+| 4 | Geschut | 5 schroot + 3 hout + 2 steen | schiet automatisch (40 kogels, bijvullen met E) |
+| 5 | Kampvuur | 5 hout + 2 steen | licht in de nacht + geneest je als je ernaast staat |
+
+### Zombies
+
+Alle zombies zijn dorpelingen in dezelfde chibi-stijl als de speler: de boer met strohoed, de oma,
+het meisje met de roze jurk, de jongen met de pet en de arbeider. Vanaf nacht 2 komen er
+**rennende** zombies (rode pet), vanaf nacht 3 de grote **bruut** in tuinbroek, die barricades
+heel snel sloopt. Elke nacht komen er meer.
+
+**Score** = 10–35 punten per zombie + 250 per overleefde nacht. Je record wordt bewaard.
+
+## Uploaden op CrazyGames
+
+**Snelste manier:** de kant-en-klare build staat in [`release/zombie-dorp-web.zip`](release/zombie-dorp-web.zip).
+Die kun je meteen uploaden (stap 5 hieronder). Heb je iets aangepast, maak dan zelf een nieuwe build:
+
+1. Open het project in **Godot 4.3** (Project → Import → kies `project.godot`).
+2. Installeer de export templates: *Editor → Manage Export Templates → Download and Install*.
+3. *Project → Export…* → kies **Web (CrazyGames)** → **Export Project** → map `build/web/`.
+   (Of in een terminal: `GODOT=/pad/naar/godot tools/export_web.sh`, dat maakt meteen `build/zombie-dorp-web.zip`.)
+4. Zip de **inhoud** van `build/web/` (dus `index.html` moet bovenaan in de zip staan).
+5. Ga naar het [CrazyGames Developer Portal](https://developer.crazygames.com) → *Upload game* →
+   kies **HTML5** en upload de zip. Test hem eerst in de **QA-tool / preview** van CrazyGames.
+
+Er staat ook een GitHub Actions workflow (`.github/workflows/export-web.yml`) die bij elke push naar
+`main` automatisch de web-build maakt; die kun je downloaden bij *Actions → Artifacts*.
+
+### Wat er al geregeld is voor CrazyGames
+
+- **CrazyGames SDK v3** wordt in de HTML geladen (`html/head_include` in `export_presets.cfg`,
+  leesbare versie in `web/crazygames_head.html`).
+- `loadingStart/loadingStop`, `gameplayStart/gameplayStop` (bij spelen, pauze, game over, menu)
+  en `happytime()` bij een nieuw record.
+- **Midgame-advertentie** na elke overleefde nacht en bij *Opnieuw*; het spel pauzeert en het geluid
+  gaat uit zolang de advertentie loopt.
+- Web-export **zonder threads** (geen speciale server-headers nodig), pijltjes/spatie scrollen de pagina niet.
+- Werkt met muis + toetsenbord en met touch (mobiel), in elk 16:9-venster en fullscreen.
+- Nederlands en Engels (automatisch volgens de taal van de browser, of via de knop NL/EN).
+
+Buiten de browser (in de Godot-editor) doen alle SDK-aanroepen gewoon niets, dus je kunt normaal testen met F5.
+
+## Projectstructuur
+
+```
+project.godot               Godot-project (viewport 480x270, pixel-perfect)
+export_presets.cfg          Web-export voor CrazyGames
+scenes/main.tscn            hoofdscène
+scripts/autoload/           Save (record), Lang (NL/EN), Audio, CrazySDK
+scripts/game/               world (kaart + A*-pathfinding), player, zombie, structure,
+                            prop (bomen/rotsen/huizen), pickup, bullet, main (dag/nacht, golven)
+scripts/ui/                 HUD, menu's, touch-besturing, thema
+assets/sprites/             alle pixel-art (gegenereerd door tools/gen_sprites.py)
+assets/audio/               muziek + geluidseffecten (CC0, zie CREDITS.md)
+assets/fonts/               Kenney pixel fonts (CC0)
+tools/                      sprite/geluid-generators en export-script
+tests/screenshot_runner.*   speelt het spel automatisch en maakt screenshots
+```
+
+### Graphics aanpassen
+
+Alle sprites worden pixel voor pixel getekend door `tools/gen_sprites.py` (Python + Pillow).
+Wil je een zombie met een andere kleur trui of haar? Pas de lijst `ZOMBIES` aan en draai:
+
+```
+pip install pillow
+python3 tools/gen_sprites.py
+```
+
+## Credits
+
+Muziek: *megupets*, *Zane Little Music*, *HydroGene*, *TAD* — geluiden: *artisticdude*, *Kenney* —
+lettertype: *Kenney*. Allemaal CC0. Details in [CREDITS.md](CREDITS.md).

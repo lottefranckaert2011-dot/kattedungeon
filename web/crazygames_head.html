@@ -1,0 +1,59 @@
+<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
+<script>
+// Bridge between the Godot game (scripts/autoload/crazy_sdk.gd) and the CrazyGames SDK v3.
+(function () {
+  var sdk = function () { return window.CrazyGames && window.CrazyGames.SDK; };
+  var ready = null;
+  // The SDK needs document.body, so never initialise it before the DOM is ready.
+  var domReady = new Promise(function (resolve) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", resolve);
+    } else {
+      resolve();
+    }
+  });
+  var bridge = {
+    init: function () {
+      if (!ready) {
+        ready = domReady.then(function () {
+          return sdk() ? sdk().init() : Promise.reject("CrazyGames SDK not loaded");
+        }).catch(function (e) { console.warn("[ZD] CrazyGames SDK unavailable:", e); });
+      }
+      return ready;
+    },
+    _game: function (fn) {
+      bridge.init().then(function () {
+        try {
+          var s = sdk();
+          if (s && s.environment !== "disabled") { s.game[fn](); }
+        } catch (e) { console.warn("[ZD]", fn, e); }
+      });
+    },
+    loadingStop: function () { bridge._game("loadingStop"); },
+    gameplayStart: function () { bridge._game("gameplayStart"); },
+    gameplayStop: function () { bridge._game("gameplayStop"); },
+    happytime: function () { bridge._game("happytime"); },
+    requestAd: function (type, cb) {
+      var done = false;
+      var finish = function (r) { if (!done) { done = true; cb(r); } };
+      bridge.init().then(function () {
+        var s = sdk();
+        if (!s || s.environment === "disabled") { finish("error"); return; }
+        try {
+          s.ad.requestAd(type, {
+            adStarted: function () { cb("started"); },
+            adFinished: function () { finish("finished"); },
+            adError: function () { finish("error"); }
+          });
+        } catch (e) { finish("error"); }
+      });
+    }
+  };
+  window.ZDBridge = bridge;
+  bridge._game("loadingStart");
+  // Stop arrow keys / space from scrolling the CrazyGames page.
+  window.addEventListener("keydown", function (e) {
+    if ([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) { e.preventDefault(); }
+  }, { passive: false });
+})();
+</script>

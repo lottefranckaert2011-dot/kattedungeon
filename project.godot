@@ -1,0 +1,59 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Zombie Dorp"
+config/description="Pixel zombie survival: verzamel spullen, bouw barricades en overleef zo lang mogelijk."
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+boot_splash/bg_color=Color(0.09, 0.08, 0.12, 1)
+boot_splash/show_image=false
+config/icon="res://icon.svg"
+
+[audio]
+
+driver/enable_input=false
+
+[autoload]
+
+Save="*res://scripts/autoload/save.gd"
+Lang="*res://scripts/autoload/lang.gd"
+Audio="*res://scripts/autoload/audio.gd"
+CrazySDK="*res://scripts/autoload/crazy_sdk.gd"
+
+[display]
+
+window/size/viewport_width=480
+window/size/viewport_height=270
+window/size/window_width_override=1440
+window/size/window_height_override=810
+window/stretch/mode="viewport"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+
+[gui]
+
+theme/custom_font="res://assets/fonts/kenney_pixel.ttf"
+theme/default_font_antialiasing=0
+theme/default_font_hinting=0
+theme/default_font_subpixel_positioning=0
+
+[physics]
+
+common/physics_ticks_per_second=60
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+2d/snap/snap_2d_transforms_to_pixel=true
+environment/defaults/default_clear_color=Color(0.09, 0.08, 0.12, 1)

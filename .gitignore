@@ -1,0 +1,6 @@
+# Godot
+.godot/
+*.translation
+/build/
+export_credentials.cfg
+.DS_Store
