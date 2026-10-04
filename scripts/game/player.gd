@@ -315,6 +315,10 @@ func eat() -> void:
 	Audio.play("eat", -4.0)
 
 
+func max_hp_value() -> float:
+	return MAX_HP
+
+
 func heal(amount: float, show := true) -> void:
 	if not alive or hp >= MAX_HP:
 		return

@@ -25,6 +25,9 @@ var rng := RandomNumberGenerator.new()
 
 var player                # Player
 var zombies: Array = []   # living + dying Zombie nodes
+var allies: Array = []    # Survivor nodes that joined the player (shared with main)
+var waiting: Array = []   # Survivor nodes in this area still waiting for help
+var is_night := false
 var entities: Node2D     # y-sorted container for everything that stands on the ground
 var decals: Node2D       # blood splats etc. drawn on the ground
 var ground_sprite: Sprite2D
@@ -465,6 +468,22 @@ func remove_prop_cells(p: Prop) -> void:
 			occupied.erase(c)
 			if p.solid:
 				astar.set_point_solid(c, false)
+
+## A random free grass cell at least min_dist tiles away from `from` (for waiting survivors).
+func far_free_cell(from: Vector2i, min_dist: float) -> Vector2i:
+	for i in 400:
+		var c := Vector2i(rng.randi_range(FOREST + 1, W - FOREST - 2), rng.randi_range(FOREST + 1, H - FOREST - 2))
+		if c.distance_to(from) < min_dist or g_at(c) == G.WATER or occupied.has(c) or astar.is_point_solid(c):
+			continue
+		var crowded := false
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				if occupied.has(c + Vector2i(dx, dy)):
+					crowded = true
+		if not crowded:
+			return c
+	return from + Vector2i(6, 6)
+
 
 func _add_shopkeeper(pos: Vector2) -> void:
 	var npc := Node2D.new()

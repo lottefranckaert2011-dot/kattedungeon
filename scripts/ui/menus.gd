@@ -214,15 +214,15 @@ func show_pause() -> void:
 	dim.color.a = 0.55
 
 
-func show_over(nights: int, kills: int, score: int, is_best: bool, area := 1) -> void:
+func show_over(nights: int, kills: int, score: int, is_best: bool, area := 1, rescued := 0) -> void:
 	hide_all()
 	over_box.visible = true
 	dim.visible = true
 	dim.color.a = 0.0
 	create_tween().tween_property(dim, "color:a", 0.6, 1.0)
 	over_new.visible = is_best
-	over_stats.text = "%s: %d\n%s: %d\n%s: %d\n%s: %d\n%s: %d" % [
-		Lang.t("survived"), nights, Lang.t("kills"), kills, Lang.t("areas"), area,
+	over_stats.text = "%s: %d\n%s: %d\n%s: %d\n%s: %d\n%s: %d\n%s: %d" % [
+		Lang.t("survived"), nights, Lang.t("kills"), kills, Lang.t("areas"), area, Lang.t("rescued"), rescued,
 		Lang.t("score"), score, Lang.t("best"), Save.best_score]
 	over_box.modulate.a = 0.0
 	create_tween().tween_property(over_box, "modulate:a", 1.0, 0.6).set_delay(0.6)

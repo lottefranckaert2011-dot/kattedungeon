@@ -41,6 +41,16 @@ const SMOKE := preload("res://assets/sprites/smoke.png")
 const SHOPKEEPER := preload("res://assets/sprites/shopkeeper.png")
 const WEAPON_SHEET := preload("res://assets/sprites/weapons.png")
 
+## Survivors you can find in the areas. They follow you and help.
+const SURVIVORS := {
+	"shooter": {"name": "Sam", "tex": preload("res://assets/sprites/survivor_shooter.png"), "hp": 80.0, "speed": 70.0},
+	"fighter": {"name": "Noor", "tex": preload("res://assets/sprites/survivor_fighter.png"), "hp": 120.0, "speed": 74.0},
+	"medic": {"name": "Mila", "tex": preload("res://assets/sprites/survivor_medic.png"), "hp": 75.0, "speed": 70.0},
+	"builder": {"name": "Bram", "tex": preload("res://assets/sprites/survivor_builder.png"), "hp": 95.0, "speed": 68.0},
+}
+const SURVIVOR_ORDER := ["shooter", "fighter", "medic", "builder"]
+const MAX_ALLIES := 4
+
 const STRUCT_TEX := {
 	"barricade": preload("res://assets/sprites/barricade.png"),
 	"wall": preload("res://assets/sprites/wall_stone.png"),

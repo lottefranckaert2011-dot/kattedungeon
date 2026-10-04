@@ -18,8 +18,9 @@ static func title_font() -> FontFile:
 	return _title_font
 
 static func _load_pixel_font(path: String) -> FontFile:
+	# Use the imported font itself (pixel settings are also in its .import file).
+	# A duplicated FontFile keeps a second glyph cache, which caused garbled letters.
 	var f: FontFile = load(path)
-	f = f.duplicate()
 	f.antialiasing = TextServer.FONT_ANTIALIASING_NONE
 	f.hinting = TextServer.HINTING_NONE
 	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED

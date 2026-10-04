@@ -10,7 +10,19 @@ Zet barricades, stenen muren, spijkervallen, geschuttorens en kampvuren neer, en
 Verslagen zombies laten **munten** vallen. Daarmee koop je in de **wapenwinkel** (het paarse huisje met de
 rood-witte luifel) betere wapens. In het dorp staat ook een **kapotte blauwe bus**: maak hem met schroot,
 hout en steen, en rijd naar een **nieuw gebied** (Het Donkere Bos, De Oude Boerderij, De Rotsvallei, ...).
-Je spullen en wapens neem je mee; je barricades blijven achter.
+Je spullen, wapens en je team neem je mee; je barricades blijven achter. Een gemaakte bus blijft gemaakt.
+
+Onderweg vind je **andere overlevenden** die "HELP!" roepen (een gele pijl aan de rand van het scherm wijst
+de weg). Druk op **E** en ze gaan met je mee, ook naar volgende gebieden:
+
+| Wie | Rol | Wat doet die? |
+|---|---|---|
+| Sam | schutter | schiet op zombies in de buurt |
+| Noor | vechter | rent naar zombies en slaat ze met een knuppel |
+| Mila | dokter | geneest jou en je team |
+| Bram | bouwer | repareert barricades en hakt soms hout voor je |
+
+Zombies vallen ook je teamleden aan. Raakt iemand gewond, dan ligt die even neer en staat de volgende ochtend weer op.
 
 ## Spelen
 
@@ -53,8 +65,8 @@ De winkel is alleen overdag open. Je krijgt munten van zombies, uit huizen en el
 
 ### Gebieden en de bus
 
-Repareren kost in gebied 1: 8 schroot + 6 hout + 3 steen (elk volgend gebied wat meer).
-Wegrijden kan alleen overdag. Elk nieuw gebied geeft **+500 punten** en de dagen gaan gewoon door.
+Repareren kost 8 schroot + 6 hout + 3 steen, en dat hoeft maar **één keer**: daarna blijft de bus gemaakt
+en staat hij in elk nieuw gebied klaar. Wegrijden kan alleen overdag. Elk nieuw gebied geeft **+500 punten** en de dagen gaan gewoon door.
 
 | Gebied | Hoe ziet het eruit? |
 |---|---|
@@ -71,7 +83,7 @@ het meisje met de roze jurk, de jongen met de pet en de arbeider. Vanaf nacht 2 
 **rennende** zombies (rode pet), vanaf nacht 3 de grote **bruut** in tuinbroek, die barricades
 heel snel sloopt. Elke nacht komen er meer.
 
-**Score** = 10–35 punten per zombie + 250 per overleefde nacht + 500 per nieuw gebied. Je record wordt bewaard.
+**Score** = 10–35 punten per zombie + 250 per overleefde nacht + 500 per nieuw gebied + 150 per geredde overlevende. Je record wordt bewaard.
 
 Een dag duurt 110 seconden (de eerste) en daarna 80 seconden. Met **N** start je de nacht eerder (bonuspunten).
 

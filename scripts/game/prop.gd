@@ -124,11 +124,14 @@ func setup(w, k: String, c: Vector2i, extra := {}) -> void:
 
 
 ## The repairable van: swap to the fixed sprite and stop smoking.
-func repair() -> void:
+func repair(effects := true) -> void:
 	repaired = true
 	sprite.texture = Res.VAN_FIXED
 	if _smoke:
 		_smoke.emitting = false
+		_smoke.visible = false
+	if not effects:
+		return
 	Fx.burst(world, global_position + Vector2(0, -10), Color(1.0, 0.9, 0.5), 14, 60.0)
 	sprite.scale = Vector2(1.15, 0.85)
 	create_tween().tween_property(sprite, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

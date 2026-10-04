@@ -89,7 +89,8 @@ func _physics_process(delta: float) -> void:
 		_groan = randf_range(4.0, 10.0)
 		Audio.play("groan", -10.0, 0.15, global_position)
 
-	var player = world.player
+	# Attack whoever is closest: the player or one of the survivors helping them.
+	var player = _pick_target()
 	var desired := Vector2.ZERO
 	var reach := 12.0 + radius
 	if player and player.alive:
@@ -151,6 +152,23 @@ func _physics_process(delta: float) -> void:
 	if desired != Vector2.ZERO:
 		_face(desired)
 	_animate(delta, desired != Vector2.ZERO)
+
+
+func _pick_target():
+	var best = world.player
+	var bd := INF
+	if best and best.alive:
+		bd = best.global_position.distance_to(global_position)
+	else:
+		best = null
+	for a in world.allies:
+		if a.joined and a.alive:
+			# survivors only draw attention when they are clearly closer
+			var d: float = a.global_position.distance_to(global_position) + 12.0
+			if d < bd:
+				bd = d
+				best = a
+	return best
 
 
 func _nearest_blocking_structure() -> Structure:

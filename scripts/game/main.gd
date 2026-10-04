@@ -26,6 +26,9 @@ var ghost: Sprite2D
 var area := 0
 var areas_done := 0
 var area_tint := Color.WHITE
+var van_repaired := false          # once fixed, the van stays fixed in every area
+var allies: Array = []             # survivors travelling with the player
+var rescued_kinds: Array = []
 
 var is_night := false
 var day_num := 1
@@ -132,6 +135,9 @@ func _setup_input() -> void:
 ## (Re)builds the map for an area and puts the player in it.
 func _build_world(area_index: int) -> void:
 	if world:
+		for a in allies:
+			if a.get_parent():
+				a.get_parent().remove_child(a)
 		if player.get_parent():
 			player.get_parent().remove_child(player)
 		if ghost.get_parent():
@@ -151,12 +157,59 @@ func _build_world(area_index: int) -> void:
 	world.entities.add_child(player)
 	world.player = player
 	world.add_child(ghost)
+	world.allies = allies
+	world.is_night = is_night
+	for a in allies:
+		a.world = world
+		world.entities.add_child(a)
+		a.place_near(player.position)
+	if van_repaired:
+		world.van.repair(false)
+	_spawn_waiting_survivors()
 	camera.limit_left = 0
 	camera.limit_top = 0
 	camera.limit_right = int(world.map_size().x)
 	camera.limit_bottom = int(world.map_size().y)
 	camera.position = player.position
 	camera.reset_smoothing()
+
+
+func _spawn_waiting_survivors() -> void:
+	var free := Res.MAX_ALLIES - allies.size()
+	var count := mini(1 if area == 0 else 2, free)
+	var start := world.to_cell(world.player_start)
+	for k in Res.SURVIVOR_ORDER:
+		if count <= 0:
+			break
+		if k in rescued_kinds:
+			continue
+		var sv := Survivor.new()
+		sv.setup(world, k)
+		sv.position = world.cell_center(world.far_free_cell(start, 16.0)) + Vector2(0, 4)
+		world.entities.add_child(sv)
+		world.waiting.append(sv)
+		count -= 1
+
+
+func _rescue(sv: Survivor) -> void:
+	world.waiting.erase(sv)
+	allies.append(sv)
+	rescued_kinds.append(sv.kind)
+	sv.join(allies.size() - 1)
+	sv.downed_changed.connect(_on_ally_downed)
+	Audio.play("highscore", -4.0)
+	hud.show_message("%s (%s) %s" % [sv.display_name, sv.role_text(), Lang.t("joined")], 2.5, Color(0.7, 1.0, 0.6))
+	hud.set_score(_score())
+
+
+func _on_ally_downed(sv: Survivor) -> void:
+	if sv.downed:
+		hud.show_message("%s %s" % [sv.display_name, Lang.t("downed")], 2.0, Color(1, 0.6, 0.5))
+
+
+func _revive_allies() -> void:
+	for a in allies:
+		a.revive()
 
 
 func _area_title() -> String:
@@ -249,11 +302,11 @@ func _on_player_died() -> void:
 		CrazySDK.happytime()
 	await get_tree().create_timer(1.4).timeout
 	hud.visible = false
-	menus.show_over(nights_survived, kills, score, best and score > 0, area + 1)
+	menus.show_over(nights_survived, kills, score, best and score > 0, area + 1, rescued_kinds.size())
 
 
 func _score() -> int:
-	return kill_score + nights_survived * 250 + areas_done * AREA_BONUS
+	return kill_score + nights_survived * 250 + areas_done * AREA_BONUS + rescued_kinds.size() * 150
 
 
 # ------------------------------------------------------------------ loop
@@ -273,6 +326,8 @@ func _process(delta: float) -> void:
 	_update_lighting()
 	_update_build_ghost()
 	_update_prompt()
+	_update_pointer()
+	hud.update_allies(allies)
 	_tutorial(delta)
 	_update_phase_ui()
 	if hud.touch.visible:
@@ -427,6 +482,7 @@ func _skip_day() -> void:
 
 func _start_night() -> void:
 	is_night = true
+	world.is_night = true
 	night_num += 1
 	phase_time = 0.0
 	wave_total = 6 + night_num * 4
@@ -465,6 +521,8 @@ func _pick_type() -> String:
 
 func _end_night() -> void:
 	is_night = false
+	world.is_night = false
+	_revive_allies()
 	nights_survived = night_num
 	day_num += 1
 	phase_time = 0.0
@@ -619,6 +677,10 @@ func _nearest_interactable():
 	var best = null
 	var bd := 22.0
 	var p := player.global_position
+	for sv in world.waiting:
+		var ds: float = sv.global_position.distance_to(p)
+		if ds < 26.0 and allies.size() < Res.MAX_ALLIES:
+			return sv
 	for e in world.entities.get_children():
 		if e is Prop and (e.def.get("shop", false) or e.def.get("van", false)):
 			var dv: float = e.interact_point().distance_to(p)
@@ -642,7 +704,9 @@ func _nearest_interactable():
 func _update_prompt() -> void:
 	var it = _nearest_interactable()
 	var txt := ""
-	if it is Prop and it.def.get("shop", false):
+	if it is Survivor:
+		txt = "%s (%s - %s)" % [Lang.t("rescue"), it.display_name, it.role_text()]
+	elif it is Prop and it.def.get("shop", false):
 		txt = Lang.t("shop")
 	elif it is Prop and it.def.get("van", false):
 		if it.repaired:
@@ -662,7 +726,9 @@ func _interact() -> void:
 	var it = _nearest_interactable()
 	if it == null:
 		return
-	if it is Prop and it.def.get("shop", false):
+	if it is Survivor:
+		_rescue(it)
+	elif it is Prop and it.def.get("shop", false):
 		_open_shop()
 	elif it is Prop and it.def.get("van", false):
 		_use_van(it)
@@ -688,6 +754,7 @@ func _interact() -> void:
 const HINTS_NL := [
 	"Hak bomen met je bijl voor HOUT (klik / spatie)",
 	"Sla op rotsen voor STEEN",
+	"Iemand roept HELP! Volg de gele pijl en neem ze mee met E",
 	"Doorzoek huizen en kratten met E",
 	"Kies 1-5 om te bouwen: zet barricades op de wegen!",
 	"Rechts klikken / F = schieten (kost kogels)",
@@ -697,6 +764,7 @@ const HINTS_NL := [
 const HINTS_EN := [
 	"Chop trees with your axe for WOOD (click / space)",
 	"Hit rocks for STONE",
+	"Someone shouts HELP! Follow the yellow arrow and take them along with E",
 	"Search houses and crates with E",
 	"Press 1-5 to build: block the roads with barricades!",
 	"Right click / F = shoot (uses ammo)",
@@ -706,6 +774,7 @@ const HINTS_EN := [
 const HINTS_TOUCH_NL := [
 	"Hak bomen met de bijl-knop voor HOUT",
 	"Sla op rotsen voor STEEN",
+	"Iemand roept HELP! Volg de gele pijl en tik E om ze mee te nemen",
 	"Loop naar een huis en tik E om te doorzoeken",
 	"Tik onderaan een gebouw en dan BOUW",
 	"De pistool-knop schiet automatisch op zombies",
@@ -715,6 +784,7 @@ const HINTS_TOUCH_NL := [
 const HINTS_TOUCH_EN := [
 	"Chop trees with the axe button for WOOD",
 	"Hit rocks for STONE",
+	"Someone shouts HELP! Follow the yellow arrow and tap E to take them along",
 	"Walk to a house and tap E to search it",
 	"Tap a building at the bottom, then BUILD",
 	"The pistol button auto-aims at zombies",
@@ -776,6 +846,7 @@ func _use_van(v: Prop) -> void:
 			return
 		player.pay(cost)
 		v.repair()
+		van_repaired = true
 		Audio.play("build", 0.0, 0.0)
 		Audio.play("reload", -2.0)
 		hud.show_message(Lang.t("van_fixed"), 2.0, Color(0.7, 1.0, 0.6))
@@ -830,8 +901,9 @@ func _travel() -> void:
 	# Build the new area while the screen is black.
 	areas_done += 1
 	world.zombies.clear()
-	_build_world(next)
 	is_night = false
+	_build_world(next)
+	_revive_allies()
 	day_num += 1
 	world.day = day_num
 	phase_time = 0.0
@@ -853,3 +925,28 @@ func _travel() -> void:
 	state = State.PLAY
 	Audio.play("day_start", -2.0, 0.0)
 	hud.show_message("%s  +%d" % [_area_title(), AREA_BONUS], 3.0, Color(0.7, 1.0, 0.6))
+
+
+## Arrow at the screen edge pointing to the nearest survivor waiting for help.
+func _update_pointer() -> void:
+	var best = null
+	var bd := INF
+	for sv in world.waiting:
+		var d: float = sv.global_position.distance_to(player.global_position)
+		if d < bd:
+			bd = d
+			best = sv
+	if best == null or allies.size() >= Res.MAX_ALLIES:
+		hud.set_pointer(false, Vector2.ZERO, Vector2.ZERO)
+		return
+	var vp := get_viewport().get_visible_rect().size
+	var rel: Vector2 = best.global_position + Vector2(0, -10) - camera.get_screen_center_position()
+	var screen := rel + vp / 2.0
+	var margin := 14.0
+	if Rect2(Vector2(margin, margin), vp - Vector2(margin, margin) * 2.0).has_point(screen):
+		hud.set_pointer(false, Vector2.ZERO, Vector2.ZERO)
+		return
+	var dir := rel.normalized()
+	var half := vp / 2.0 - Vector2(margin, margin)
+	var t := minf(half.x / maxf(absf(dir.x), 0.001), half.y / maxf(absf(dir.y), 0.001))
+	hud.set_pointer(true, vp / 2.0 + dir * t, dir)

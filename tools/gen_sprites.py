@@ -200,7 +200,13 @@ def draw_character(d, frame, cfg):
         cv.px(x0 + 1, tt, ov)
         cv.px(x1 - 1, tt, ov)
         cv.rect(x0 + 1, tt + 1, x1 - 1, tt + 2, ov)
-    if d == 0 and not cfg.get("overalls") and not cfg.get("dress_top"):
+    if cfg.get("cross") and d in (0, 1):
+        cv.rect(cx - 1, tt + 1, cx, tt + 4, (220, 50, 50))
+        cv.rect(cx - 2, tt + 2, cx + 1, tt + 3, (220, 50, 50))
+    if cfg.get("scarf") and d != 1:
+        cv.rect(x0, tt, x1, tt, cfg["scarf"])
+        cv.px(x0 + 1, tt + 1, cfg["scarf"])
+    if d == 0 and not cfg.get("overalls") and not cfg.get("dress_top") and not cfg.get("cross"):
         cv.px(cx - 1, tt, skin)
         cv.px(cx, tt, skin)
     if zombie:
@@ -425,6 +431,15 @@ VILLAGERS_FOR_MENU = {
                             pants=(196, 176, 130), seed=2),
     "shopkeeper": dict(skin=SKIN_DARK, hair=(40, 30, 28), hair_style="short", shirt=(236, 232, 220),
                        overalls=(70, 140, 90), pants=(60, 60, 80), seed=9),
+    # Survivors you can find and take along.
+    "survivor_shooter": dict(skin=SKIN_TAN, hair=(60, 40, 30), hat="cap", hat_color=(70, 110, 60),
+                             shirt=(96, 120, 70), pants=(70, 64, 54), scarf=(200, 170, 90), seed=11),
+    "survivor_fighter": dict(skin=SKIN_LIGHT, hair=(200, 80, 50), hair_style="spiky", shirt=(230, 130, 50),
+                             pants=(50, 54, 70), scarf=(200, 40, 40), seed=12),
+    "survivor_medic": dict(skin=SKIN_DARK, hair=(30, 24, 24), hair_style="long", shirt=(240, 240, 236),
+                           pants=(110, 160, 200), cross=True, seed=13),
+    "survivor_builder": dict(skin=SKIN_LIGHT, hair=(150, 100, 60), hat="cap", hat_color=(240, 200, 40),
+                             shirt=(200, 90, 60), overalls=(70, 90, 150), pants=(70, 90, 150), seed=14),
 }
 
 

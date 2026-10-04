@@ -12,6 +12,13 @@ var hp_label: Label
 var melee_icon: TextureRect
 var gun_icon: TextureRect
 var area_label: Label
+var allies_box: VBoxContainer
+var pointer: Control
+var _ally_rows := []      # [survivor, fill ColorRect, row]
+var _ptr_on := false
+var _ptr_pos := Vector2.ZERO
+var _ptr_dir := Vector2.ZERO
+var _ptr_t := 0.0
 var res_labels := {}
 var phase_icon: TextureRect
 var phase_label: Label
@@ -119,6 +126,16 @@ func _build_status() -> void:
 	gun_icon.position = Vector2(25, 4)
 	gun_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wp.add_child(gun_icon)
+	allies_box = VBoxContainer.new()
+	allies_box.position = Vector2(4, 76)
+	allies_box.add_theme_constant_override("separation", 1)
+	allies_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(allies_box)
+	pointer = Control.new()
+	pointer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pointer.draw.connect(_draw_pointer)
+	root.add_child(pointer)
 	area_label = UITheme.label("", 16, Color(0.8, 0.9, 1.0))
 	area_label.position = Vector2(54, 50)
 	root.add_child(area_label)
@@ -264,6 +281,70 @@ func set_hp(hp: float, max_hp: float) -> void:
 func set_weapons(melee: String, gun: String) -> void:
 	melee_icon.texture = Res.weapon_icon(melee)
 	gun_icon.texture = Res.weapon_icon(gun)
+
+
+## Small list of the survivors in your team with their health.
+func update_allies(allies: Array) -> void:
+	if _ally_rows.size() != allies.size():
+		for c in allies_box.get_children():
+			c.queue_free()
+		_ally_rows.clear()
+		for a in allies:
+			var row := Panel.new()
+			row.custom_minimum_size = Vector2(70, 15)
+			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var head := TextureRect.new()
+			var at := AtlasTexture.new()
+			at.atlas = Res.SURVIVORS[a.kind]["tex"]
+			at.region = Rect2(2, 1, 12, 12)
+			head.texture = at
+			head.position = Vector2(2, 1)
+			row.add_child(head)
+			var name := UITheme.label(a.display_name, 16)
+			name.position = Vector2(16, -3)
+			row.add_child(name)
+			var bg := ColorRect.new()
+			bg.color = Color(0.15, 0.08, 0.1)
+			bg.position = Vector2(44, 5)
+			bg.size = Vector2(23, 5)
+			row.add_child(bg)
+			var fill := ColorRect.new()
+			fill.color = Color(0.4, 0.85, 0.4)
+			fill.position = Vector2(45, 6)
+			fill.size = Vector2(21, 3)
+			row.add_child(fill)
+			allies_box.add_child(row)
+			_ally_rows.append([a, fill, row])
+	for r in _ally_rows:
+		var a = r[0]
+		var frac: float = clampf(a.hp / a.max_hp, 0.0, 1.0)
+		r[1].size.x = 21.0 * frac
+		r[1].color = Color(0.4, 0.85, 0.4) if frac > 0.35 else Color(1.0, 0.4, 0.3)
+		r[2].modulate = Color(1, 1, 1, 0.5) if a.downed else Color.WHITE
+
+
+func set_pointer(on: bool, pos: Vector2, dir: Vector2) -> void:
+	_ptr_on = on
+	_ptr_pos = pos
+	_ptr_dir = dir
+	_ptr_t += get_process_delta_time()
+	pointer.queue_redraw()
+
+
+func _draw_pointer() -> void:
+	if not _ptr_on:
+		return
+	var p := _ptr_pos - _ptr_dir * (2.0 + sin(_ptr_t * 8.0) * 2.0)
+	var side := _ptr_dir.orthogonal()
+	var tip := p + _ptr_dir * 6.0
+	var pts := PackedVector2Array([tip, p - _ptr_dir * 4.0 + side * 5.0, p - _ptr_dir * 4.0 - side * 5.0])
+	pointer.draw_colored_polygon(pts, Color(0.1, 0.06, 0.1))
+	var inner := PackedVector2Array([tip - _ptr_dir * 1.5, p - _ptr_dir * 2.8 + side * 3.5, p - _ptr_dir * 2.8 - side * 3.5])
+	pointer.draw_colored_polygon(inner, Color(1.0, 0.9, 0.3))
+	var font := UITheme.font()
+	var lp := p - _ptr_dir * 12.0 + Vector2(-2, 5)
+	pointer.draw_string_outline(font, lp, "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, 4, Color(0.1, 0.06, 0.1))
+	pointer.draw_string(font, lp, "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1.0, 0.9, 0.3))
 
 
 func set_area(text: String) -> void:
