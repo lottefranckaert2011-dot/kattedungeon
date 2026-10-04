@@ -23,6 +23,9 @@ const DEFS := {
 	"house_red": {"hp": -1, "random_loot": 4, "search": "house", "col": Vector2(56, 24), "house": true},
 	"house_blue": {"hp": -1, "random_loot": 4, "search": "house", "col": Vector2(56, 24), "house": true},
 	"house_tan": {"hp": -1, "random_loot": 4, "search": "house", "col": Vector2(56, 24), "house": true},
+	"house_white": {"hp": -1, "random_loot": 4, "search": "house", "col": Vector2(56, 24), "house": true},
+	"shop": {"hp": -1, "col": Vector2(56, 24), "house": true, "shop": true},
+	"van": {"hp": -1, "col": Vector2(40, 10), "van": true, "fp": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)]},
 }
 
 var world
@@ -33,7 +36,9 @@ var cells: Array[Vector2i] = []
 var hp := 1
 var solid := true
 var searched := false
+var repaired := false
 var sprite: Sprite2D
+var _smoke: CPUParticles2D
 var _shake := 0.0
 
 
@@ -101,6 +106,33 @@ func setup(w, k: String, c: Vector2i, extra := {}) -> void:
 			cs.position = Vector2(0, -12)
 		add_child(cs)
 
+	if def.get("van", false):
+		_smoke = CPUParticles2D.new()
+		_smoke.texture = Res.SMOKE
+		_smoke.position = Vector2(13, -22)
+		_smoke.amount = 10
+		_smoke.lifetime = 1.6
+		_smoke.direction = Vector2.UP
+		_smoke.spread = 25.0
+		_smoke.gravity = Vector2(4, -8)
+		_smoke.initial_velocity_min = 6.0
+		_smoke.initial_velocity_max = 12.0
+		_smoke.scale_amount_min = 0.6
+		_smoke.scale_amount_max = 1.3
+		_smoke.color = Color(0.75, 0.75, 0.78, 0.7)
+		add_child(_smoke)
+
+
+## The repairable van: swap to the fixed sprite and stop smoking.
+func repair() -> void:
+	repaired = true
+	sprite.texture = Res.VAN_FIXED
+	if _smoke:
+		_smoke.emitting = false
+	Fx.burst(world, global_position + Vector2(0, -10), Color(1.0, 0.9, 0.5), 14, 60.0)
+	sprite.scale = Vector2(1.15, 0.85)
+	create_tween().tween_property(sprite, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 
 func _process(delta: float) -> void:
 	if _shake > 0:
@@ -121,6 +153,8 @@ func hit_point() -> Vector2:
 
 func interact_point() -> Vector2:
 	if def.get("house", false):
+		return global_position + Vector2(0, 2)
+	if def.get("van", false):
 		return global_position + Vector2(0, 2)
 	return global_position
 
@@ -177,7 +211,10 @@ func _roll_random_loot(rolls: int) -> Dictionary:
 			amount = randi_range(3, 6) + mini(day, 4)
 		elif r < 0.8:
 			key = "food"
-		elif r < 0.9:
+		elif r < 0.88:
+			key = "coins"
+			amount = randi_range(3, 8)
+		elif r < 0.96:
 			key = "wood"
 			amount = randi_range(1, 3)
 		else:

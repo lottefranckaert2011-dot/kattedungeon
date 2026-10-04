@@ -423,6 +423,8 @@ ZOMBIES = {
 VILLAGERS_FOR_MENU = {
     "villager_farmer": dict(skin=SKIN_TAN, hair=(196, 160, 80), hat="straw", shirt=(150, 98, 60),
                             pants=(196, 176, 130), seed=2),
+    "shopkeeper": dict(skin=SKIN_DARK, hair=(40, 30, 28), hair_style="short", shirt=(236, 232, 220),
+                       overalls=(70, 140, 90), pants=(60, 60, 80), seed=9),
 }
 
 
@@ -530,7 +532,7 @@ def tile_soil(seed):
 
 def edge_overlay(side, bank=False, seed=0):
     """Grass fringe hanging over a lower tile (dirt/water). side: n,s,e,w,ne,nw,se,sw."""
-    r = random.Random(seed + hash(side) % 1000)
+    r = random.Random(seed + sum(ord(ch) for ch in side))
     cv = Canvas(16, 16)
 
     def depth_at(i):
@@ -1015,7 +1017,7 @@ def make_campfire():
 # ---------------------------------------------------------------- items / fx / ui
 
 def make_items():
-    """12x12 icons: wood, stone, scrap, ammo, food, heart, skull, moon, sun, zombie, axe, gun, sound, mute"""
+    """12x12 icons: wood, stone, scrap, ammo, food, heart, skull, moon, sun, zombie, axe, gun, sound, mute, coin"""
     icons = []
     # wood
     cv = Canvas(12, 12)
@@ -1133,6 +1135,17 @@ def make_items():
                 cv.px(10 - i, 4 + i, (230, 70, 60))
         cv.outline()
         icons.append(cv)
+    # coin
+    cv = Canvas(12, 12)
+    for y in range(12):
+        for x in range(12):
+            d = math.hypot(x - 5.5, y - 5.5)
+            if d < 4.6:
+                cv.px(x, y, (250, 206, 70) if d < 3.4 else (210, 150, 40))
+    cv.rect(5, 3, 6, 8, (255, 240, 150))
+    cv.px(4, 4, (255, 250, 210))
+    cv.outline()
+    icons.append(cv)
     sheet = Image.new("RGBA", (12 * len(icons), 12), (0, 0, 0, 0))
     for i, c in enumerate(icons):
         sheet.alpha_composite(c.img, (i * 12, 0))
@@ -1256,6 +1269,149 @@ def make_ui():
     cv.img.save(os.path.join(OUT, "touch_btn.png"))
 
 
+# ---------------------------------------------------------------- shop, van, weapons
+
+def make_shop():
+    cv = make_house((150, 120, 170), (126, 98, 146), (120, 70, 40), 7)
+    w = cv.w
+    wall_top = 32
+    # striped awning above the door
+    for x in range(w // 2 - 14, w // 2 + 14):
+        stripe = (220, 60, 56) if ((x - (w // 2 - 14)) // 3) % 2 == 0 else (244, 240, 230)
+        cv.rect(x, wall_top + 8, x, wall_top + 11, stripe)
+        if x % 3 == 0:
+            cv.px(x, wall_top + 12, stripe)
+    # hanging sign with crossed weapons
+    sx, sy = w // 2 - 9, wall_top + 1
+    cv.rect(sx, sy, sx + 17, sy + 6, (96, 62, 40))
+    cv.rect(sx + 1, sy + 1, sx + 16, sy + 5, (232, 200, 130))
+    for i in range(5):
+        cv.px(sx + 6 + i, sy + 1 + i, (90, 92, 104))
+        cv.px(sx + 11 - i, sy + 1 + i, (90, 92, 104))
+    cv.rect(sx + 2, sy + 2, sx + 3, sy + 4, (250, 206, 70))
+    cv.rect(sx + 14, sy + 2, sx + 15, sy + 4, (250, 206, 70))
+    # little crates with goods in front
+    for bx in (6, w - 15):
+        cv.rect(bx, 54, bx + 8, 59, (176, 124, 70))
+        cv.rect(bx, 54, bx + 8, 54, (204, 156, 96))
+        cv.px(bx + 2, 53, (220, 60, 56))
+        cv.px(bx + 5, 53, (250, 206, 70))
+    cv.outline()
+    return cv
+
+
+def make_van(broken):
+    cv = Canvas(44, 28)
+    body = (70, 120, 190) if not broken else (86, 110, 150)
+    bd = darker(body, 0.75)
+    cv.rect(2, 9, 41, 21, body)
+    cv.rect(2, 19, 41, 21, bd)
+    cv.rect(4, 3, 30, 9, body)
+    cv.rect(30, 6, 38, 9, body)
+    cv.rect(31, 6, 37, 9, (140, 190, 220))
+    cv.rect(6, 4, 13, 8, (140, 190, 220))
+    cv.rect(16, 4, 23, 8, (140, 190, 220))
+    cv.rect(7, 5, 8, 6, (220, 240, 250))
+    cv.rect(2, 13, 41, 13, (236, 232, 220))
+    cv.rect(39, 15, 41, 17, (250, 230, 130))
+    for x in (9, 33):
+        cv.rect(x - 4, 20, x + 4, 26, (40, 40, 46))
+        cv.rect(x - 1, 22, x + 1, 24, (130, 130, 140))
+    if broken:
+        # rust spots, a cracked window, a flat front tyre and an open bonnet
+        r = random.Random(3)
+        for _ in range(14):
+            x, y = r.randint(3, 40), r.randint(10, 20)
+            cv.px(x, y, (130, 80, 56))
+        cv.px(18, 5, (60, 80, 100))
+        cv.px(19, 6, (60, 80, 100))
+        cv.px(20, 7, (60, 80, 100))
+        for y in range(20, 27):
+            for x in range(29, 38):
+                cv.clear(x, y)
+        cv.rect(29, 24, 37, 26, (40, 40, 46))
+        cv.rect(31, 1, 41, 4, bd)
+        cv.rect(31, 5, 41, 5, (60, 60, 66))
+    else:
+        cv.rect(3, 10, 40, 10, lighter(body, 0.35))
+    cv.outline()
+    return cv
+
+
+def weapon_icon(kind):
+    cv = Canvas(16, 16)
+    wood, wood_d = (150, 100, 60), (110, 72, 44)
+    steel, steel_d, steel_l = (180, 186, 198), (120, 126, 140), (232, 236, 244)
+    gun, gun_l = (70, 72, 84), (130, 134, 146)
+    if kind == "axe":
+        for i in range(11):
+            cv.px(2 + i, 13 - i, wood)
+            cv.px(3 + i, 13 - i, wood_d)
+        cv.rect(9, 1, 13, 6, steel)
+        cv.rect(12, 1, 13, 6, steel_d)
+        cv.px(9, 1, steel_l)
+    elif kind == "bat":
+        for i in range(12):
+            t = 1 if i < 5 else 2
+            for k in range(t):
+                cv.px(2 + i + k, 13 - i, (196, 150, 96) if k == 0 else (160, 116, 70))
+        cv.rect(1, 13, 3, 14, (60, 40, 30))
+    elif kind == "machete":
+        for i in range(4):
+            cv.px(2 + i, 13 - i, (60, 40, 30))
+            cv.px(3 + i, 13 - i, (40, 30, 24))
+        for i in range(9):
+            cv.px(6 + i, 9 - i, steel)
+            cv.px(6 + i, 10 - i, steel_d)
+            cv.px(7 + i, 9 - i, steel_l)
+    elif kind == "chainsaw":
+        cv.rect(1, 6, 7, 12, (232, 130, 40))
+        cv.rect(1, 11, 7, 12, (190, 96, 30))
+        cv.rect(2, 4, 5, 5, (40, 40, 46))
+        cv.rect(8, 8, 15, 10, steel)
+        for x in range(8, 16, 2):
+            cv.px(x, 7, steel_d)
+            cv.px(x + 1, 11, steel_d)
+    elif kind == "pistol":
+        cv.rect(2, 5, 12, 7, gun)
+        cv.rect(2, 5, 12, 5, gun_l)
+        cv.rect(3, 8, 5, 11, (110, 76, 50))
+    elif kind == "shotgun":
+        cv.rect(0, 6, 15, 7, gun)
+        cv.rect(0, 6, 15, 6, gun_l)
+        cv.rect(5, 8, 9, 8, gun)
+        cv.rect(0, 8, 4, 11, (130, 86, 52))
+        cv.rect(8, 8, 11, 9, (130, 86, 52))
+    elif kind == "smg":
+        cv.rect(2, 5, 14, 8, gun)
+        cv.rect(2, 5, 14, 5, gun_l)
+        cv.rect(6, 9, 8, 13, (50, 52, 60))
+        cv.rect(11, 9, 12, 11, (50, 52, 60))
+        cv.rect(0, 6, 2, 7, gun)
+    cv.outline()
+    return cv
+
+
+WEAPON_ORDER = ["axe", "bat", "machete", "chainsaw", "pistol", "shotgun", "smg"]
+
+
+def make_weapons():
+    sheet = Image.new("RGBA", (16 * len(WEAPON_ORDER), 16), (0, 0, 0, 0))
+    for i, k in enumerate(WEAPON_ORDER):
+        sheet.alpha_composite(weapon_icon(k).img, (i * 16, 0))
+    sheet.save(os.path.join(OUT, "weapons.png"))
+
+
+def make_smoke():
+    cv = Canvas(8, 8)
+    for y in range(8):
+        for x in range(8):
+            d = math.hypot(x - 3.5, y - 3.5)
+            if d < 3.6:
+                cv.px(x, y, (200, 200, 205), 200 if d < 2.5 else 120)
+    cv.img.save(os.path.join(OUT, "smoke.png"))
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     character_sheet("player", PLAYER)
@@ -1290,6 +1446,12 @@ def main():
     base.img.save(os.path.join(OUT, "turret_base.png"))
     gun.img.save(os.path.join(OUT, "turret_gun.png"))
     make_campfire().img.save(os.path.join(OUT, "campfire.png"))
+    make_house((214, 200, 170), (186, 172, 142), (60, 120, 80), 4).img.save(os.path.join(OUT, "house_white.png"))
+    make_shop().img.save(os.path.join(OUT, "shop.png"))
+    make_van(True).img.save(os.path.join(OUT, "van_broken.png"))
+    make_van(False).img.save(os.path.join(OUT, "van.png"))
+    make_weapons()
+    make_smoke()
     make_items()
     make_fx()
     make_ui()

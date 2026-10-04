@@ -9,6 +9,9 @@ signal night_pressed
 var root: Control
 var hp_fill: ColorRect
 var hp_label: Label
+var melee_icon: TextureRect
+var gun_icon: TextureRect
+var area_label: Label
 var res_labels := {}
 var phase_icon: TextureRect
 var phase_label: Label
@@ -81,21 +84,21 @@ func _icon(name: String, pos: Vector2) -> TextureRect:
 
 
 func _build_status() -> void:
-	var p := _panel(Vector2(4, 4), Vector2(142, 42))
+	var p := _panel(Vector2(4, 4), Vector2(170, 42))
 	root.add_child(p)
 	p.add_child(_icon("heart", Vector2(5, 4)))
 	var bg := ColorRect.new()
 	bg.color = Color(0.15, 0.08, 0.1)
 	bg.position = Vector2(20, 6)
-	bg.size = Vector2(116, 9)
+	bg.size = Vector2(144, 9)
 	p.add_child(bg)
 	hp_fill = ColorRect.new()
 	hp_fill.color = Color(0.86, 0.2, 0.25)
 	hp_fill.position = Vector2(21, 7)
-	hp_fill.size = Vector2(114, 7)
+	hp_fill.size = Vector2(142, 7)
 	p.add_child(hp_fill)
 	hp_label = UITheme.label("100", 16)
-	hp_label.position = Vector2(66, 1)
+	hp_label.position = Vector2(80, 1)
 	p.add_child(hp_label)
 	var x := 4
 	for r in Res.RESOURCES:
@@ -105,6 +108,20 @@ func _build_status() -> void:
 		p.add_child(l)
 		res_labels[r] = l
 		x += 27
+	# current weapons
+	var wp := _panel(Vector2(4, 48), Vector2(46, 24))
+	root.add_child(wp)
+	melee_icon = TextureRect.new()
+	melee_icon.position = Vector2(4, 4)
+	melee_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wp.add_child(melee_icon)
+	gun_icon = TextureRect.new()
+	gun_icon.position = Vector2(25, 4)
+	gun_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wp.add_child(gun_icon)
+	area_label = UITheme.label("", 16, Color(0.8, 0.9, 1.0))
+	area_label.position = Vector2(54, 50)
+	root.add_child(area_label)
 
 
 func _build_phase() -> void:
@@ -239,9 +256,18 @@ func update_affordable(player: Player) -> void:
 
 
 func set_hp(hp: float, max_hp: float) -> void:
-	hp_fill.size.x = 114.0 * clampf(hp / max_hp, 0.0, 1.0)
+	hp_fill.size.x = 142.0 * clampf(hp / max_hp, 0.0, 1.0)
 	hp_label.text = str(int(ceil(hp)))
 	hp_fill.color = Color(0.86, 0.2, 0.25) if hp > 30 else Color(1.0, 0.35, 0.2)
+
+
+func set_weapons(melee: String, gun: String) -> void:
+	melee_icon.texture = Res.weapon_icon(melee)
+	gun_icon.texture = Res.weapon_icon(gun)
+
+
+func set_area(text: String) -> void:
+	area_label.text = text
 
 
 func set_inventory(inv: Dictionary) -> void:

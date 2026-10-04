@@ -1,10 +1,11 @@
 extends Node2D
 ## Game controller: menus, day/night cycle, zombie waves, building and score.
 
-enum State { MENU, PLAY, PAUSE, OVER }
+enum State { MENU, PLAY, PAUSE, OVER, SHOP, TRAVEL }
 
-const FIRST_DAY := 75.0
-const DAY_LENGTH := 50.0
+const FIRST_DAY := 110.0
+const DAY_LENGTH := 80.0
+const AREA_BONUS := 500
 const DUSK := 8.0
 const DAY_COLOR := Color(1, 1, 1)
 const DUSK_COLOR := Color(1.0, 0.78, 0.62)
@@ -20,7 +21,11 @@ var camera: Camera2D
 var canvas_mod: CanvasModulate
 var hud: HUD
 var menus: Menus
+var shop_ui: Shop
 var ghost: Sprite2D
+var area := 0
+var areas_done := 0
+var area_tint := Color.WHITE
 
 var is_night := false
 var day_num := 1
@@ -45,41 +50,27 @@ func _ready() -> void:
 	_setup_input()
 
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	world = World.new()
-	world.process_mode = Node.PROCESS_MODE_PAUSABLE
-	add_child(world)
-	world.generate(randi())
-
 	player = Player.new()
-	player.world = world
 	player.main = self
-	player.position = world.player_start
-	world.entities.add_child(player)
-	world.player = player
+	ghost = Sprite2D.new()
+	ghost.centered = false
+	ghost.visible = false
+	ghost.z_index = 30
+	camera = Camera2D.new()
+	camera.position_smoothing_enabled = true
+	camera.position_smoothing_speed = 7.0
+	add_child(camera)
+	_build_world(0)
 	player.hp_changed.connect(func(hp, mx): hud.set_hp(hp, mx))
 	player.inventory_changed.connect(_on_inventory)
 	player.died.connect(_on_player_died)
 	player.message.connect(func(t): hud.show_message(t, 1.2, Color(1, 0.6, 0.5)))
 
-	camera = Camera2D.new()
-	camera.position = player.position
-	camera.limit_left = 0
-	camera.limit_top = 0
-	camera.limit_right = int(world.map_size().x)
-	camera.limit_bottom = int(world.map_size().y)
-	camera.position_smoothing_enabled = true
-	camera.position_smoothing_speed = 7.0
-	add_child(camera)
+	player.weapons_changed.connect(_on_weapons_changed)
 
 	canvas_mod = CanvasModulate.new()
 	canvas_mod.color = DAY_COLOR
 	add_child(canvas_mod)
-
-	ghost = Sprite2D.new()
-	ghost.centered = false
-	ghost.visible = false
-	ghost.z_index = 30
-	world.add_child(ghost)
 
 	hud = HUD.new()
 	hud.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -92,6 +83,12 @@ func _ready() -> void:
 	hud.set_inventory(player.inv)
 	hud.update_affordable(player)
 	hud.set_score(0)
+	hud.set_weapons(player.melee, player.gun)
+	hud.set_area("")
+
+	shop_ui = Shop.new()
+	add_child(shop_ui)
+	shop_ui.closed.connect(_on_shop_closed)
 
 	menus = Menus.new()
 	add_child(menus)
@@ -119,6 +116,7 @@ func _setup_input() -> void:
 		"move_up": [KEY_W, KEY_UP], "move_down": [KEY_S, KEY_DOWN],
 		"attack": [KEY_SPACE], "shoot": [KEY_F], "interact": [KEY_E],
 		"eat": [KEY_R, KEY_H], "pause": [KEY_P, KEY_ESCAPE], "start_night": [KEY_N],
+		"switch_gun": [KEY_TAB],
 		"build_1": [KEY_1], "build_2": [KEY_2], "build_3": [KEY_3], "build_4": [KEY_4], "build_5": [KEY_5],
 	}
 	for action in map:
@@ -129,6 +127,40 @@ func _setup_input() -> void:
 			var ev := InputEventKey.new()
 			ev.physical_keycode = key
 			InputMap.action_add_event(action, ev)
+
+
+## (Re)builds the map for an area and puts the player in it.
+func _build_world(area_index: int) -> void:
+	if world:
+		if player.get_parent():
+			player.get_parent().remove_child(player)
+		if ghost.get_parent():
+			ghost.get_parent().remove_child(ghost)
+		world.queue_free()
+	area = area_index
+	area_tint = Res.area_info(area)["tint"]
+	world = World.new()
+	world.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(world)
+	move_child(world, 0)
+	world.generate(randi(), area)
+	world.day = day_num
+	player.world = world
+	player.position = world.player_start
+	player.velocity = Vector2.ZERO
+	world.entities.add_child(player)
+	world.player = player
+	world.add_child(ghost)
+	camera.limit_left = 0
+	camera.limit_top = 0
+	camera.limit_right = int(world.map_size().x)
+	camera.limit_bottom = int(world.map_size().y)
+	camera.position = player.position
+	camera.reset_smoothing()
+
+
+func _area_title() -> String:
+	return "%s %d: %s" % [Lang.t("area"), area + 1, Res.area_name(area)]
 
 
 # ------------------------------------------------------------------ states
@@ -153,6 +185,7 @@ func _start_game() -> void:
 	phase_time = 0.0
 	phase_len = FIRST_DAY
 	Audio.play_music("day")
+	hud.set_area(_area_title())
 	hud.show_message(Lang.t("gather_hint"), 3.5)
 	_hint_i = 0 if not Save.tutorial_done else 99
 	_hint_timer = 4.5
@@ -198,7 +231,7 @@ func _on_ad_finished() -> void:
 		get_tree().paused = false
 		get_tree().reload_current_scene()
 		return
-	get_tree().paused = state == State.PAUSE
+	get_tree().paused = state == State.PAUSE or state == State.SHOP
 
 
 func _on_player_died() -> void:
@@ -208,17 +241,19 @@ func _on_player_died() -> void:
 	CrazySDK.gameplay_stop()
 	var score := _score()
 	var best := Save.submit(score, nights_survived)
+	Save.best_area = maxi(Save.best_area, area + 1)
+	Save.write()
 	Audio.play_music("gameover", 0.6)
 	if best and score > 0:
 		Audio.play("highscore", -2.0)
 		CrazySDK.happytime()
 	await get_tree().create_timer(1.4).timeout
 	hud.visible = false
-	menus.show_over(nights_survived, kills, score, best and score > 0)
+	menus.show_over(nights_survived, kills, score, best and score > 0, area + 1)
 
 
 func _score() -> int:
-	return kill_score + nights_survived * 250
+	return kill_score + nights_survived * 250 + areas_done * AREA_BONUS
 
 
 # ------------------------------------------------------------------ loop
@@ -285,6 +320,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and hud.touch.visible:
 		if event.is_action("move_left") or event.is_action("move_right") or event.is_action("move_up") or event.is_action("move_down"):
 			_set_touch(false)
+	if state == State.SHOP or state == State.TRAVEL:
+		return
 	if event.is_action_pressed("pause"):
 		if build_kind != "" and event is InputEventKey and event.physical_keycode == KEY_ESCAPE:
 			_toggle_build(build_kind)
@@ -304,6 +341,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		player.eat()
 	if event.is_action_pressed("start_night"):
 		_skip_day()
+	if event.is_action_pressed("switch_gun"):
+		player.switch_gun()
+	if event is InputEventMouseButton and event.pressed and build_kind == "" \
+			and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+		player.switch_gun()
 	if event is InputEventMouseButton and event.pressed and build_kind != "" and not hud.touch.visible:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_try_build(_mouse_cell())
@@ -355,6 +397,8 @@ func _on_touch_action(name: String) -> void:
 		"cancel":
 			if build_kind != "":
 				_toggle_build(build_kind)
+		"swap":
+			player.switch_gun()
 
 
 # ------------------------------------------------------------------ day / night
@@ -427,9 +471,12 @@ func _end_night() -> void:
 	phase_len = DAY_LENGTH
 	world.new_day(day_num)
 	player.heal(20.0)
+	var bonus := 10 + night_num * 5
+	player.inv["coins"] += bonus
+	player.inventory_changed.emit()
 	Audio.play("day_start", -2.0, 0.0)
 	Audio.play_music("day")
-	hud.show_message("%s  +%d" % [Lang.t("day_comes"), 250], 3.0, Color(0.7, 1.0, 0.6))
+	hud.show_message("%s  +%d  (+%d %s)" % [Lang.t("day_comes"), 250, bonus, Lang.t("coins")], 3.0, Color(0.7, 1.0, 0.6))
 	hud.set_score(_score())
 	# A natural break: good moment for a CrazyGames midgame ad.
 	CrazySDK.request_midgame()
@@ -477,7 +524,7 @@ func _update_lighting() -> void:
 		elif phase_time < 3.0 and day_num > 1:
 			c = NIGHT_COLOR.lerp(DAY_COLOR, phase_time / 3.0)
 			light = 1.0 - phase_time / 3.0
-	canvas_mod.color = c
+	canvas_mod.color = c * area_tint
 	player.light.energy = light * 1.1
 
 
@@ -573,7 +620,12 @@ func _nearest_interactable():
 	var bd := 22.0
 	var p := player.global_position
 	for e in world.entities.get_children():
-		if e is Prop and e.can_search():
+		if e is Prop and (e.def.get("shop", false) or e.def.get("van", false)):
+			var dv: float = e.interact_point().distance_to(p)
+			if dv < 30.0 and dv < bd + 8.0:
+				bd = dv
+				best = e
+		elif e is Prop and e.can_search():
 			var d: float = e.interact_point().distance_to(p)
 			var reach := 30.0 if e.def.get("house", false) else bd
 			if d < reach and d < bd + 8.0:
@@ -590,19 +642,31 @@ func _nearest_interactable():
 func _update_prompt() -> void:
 	var it = _nearest_interactable()
 	var txt := ""
-	if it is Prop:
+	if it is Prop and it.def.get("shop", false):
+		txt = Lang.t("shop")
+	elif it is Prop and it.def.get("van", false):
+		if it.repaired:
+			txt = Lang.t("van_go")
+		else:
+			txt = "%s (%s)" % [Lang.t("van_repair"), Res.dict_text(Res.van_cost(area))]
+	elif it is Prop:
 		txt = Lang.t("search")
 	elif it is Structure:
 		txt = Lang.t("refill")
 	hud.prompt_label.text = "" if hud.touch.visible else txt
 	hud.touch.refresh(it != null, build_kind != "")
+	hud.touch.can_swap = player.gun_count() > 1
 
 
 func _interact() -> void:
 	var it = _nearest_interactable()
 	if it == null:
 		return
-	if it is Prop:
+	if it is Prop and it.def.get("shop", false):
+		_open_shop()
+	elif it is Prop and it.def.get("van", false):
+		_use_van(it)
+	elif it is Prop:
 		var loot: Dictionary = it.search()
 		if loot.is_empty():
 			Fx.text(world, it.interact_point() + Vector2(0, -10), Lang.t("empty"), Color(0.8, 0.8, 0.8))
@@ -627,6 +691,8 @@ const HINTS_NL := [
 	"Doorzoek huizen en kratten met E",
 	"Kies 1-5 om te bouwen: zet barricades op de wegen!",
 	"Rechts klikken / F = schieten (kost kogels)",
+	"Zombies laten MUNTEN vallen: koop wapens in de paarse winkel",
+	"Maak de kapotte blauwe bus en rijd naar een nieuw gebied!",
 ]
 const HINTS_EN := [
 	"Chop trees with your axe for WOOD (click / space)",
@@ -634,6 +700,8 @@ const HINTS_EN := [
 	"Search houses and crates with E",
 	"Press 1-5 to build: block the roads with barricades!",
 	"Right click / F = shoot (uses ammo)",
+	"Zombies drop COINS: buy weapons in the purple shop",
+	"Fix the broken blue van and drive to a new area!",
 ]
 const HINTS_TOUCH_NL := [
 	"Hak bomen met de bijl-knop voor HOUT",
@@ -641,6 +709,8 @@ const HINTS_TOUCH_NL := [
 	"Loop naar een huis en tik E om te doorzoeken",
 	"Tik onderaan een gebouw en dan BOUW",
 	"De pistool-knop schiet automatisch op zombies",
+	"Zombies laten MUNTEN vallen: koop wapens in de paarse winkel",
+	"Maak de kapotte blauwe bus en rijd naar een nieuw gebied!",
 ]
 const HINTS_TOUCH_EN := [
 	"Chop trees with the axe button for WOOD",
@@ -648,10 +718,12 @@ const HINTS_TOUCH_EN := [
 	"Walk to a house and tap E to search it",
 	"Tap a building at the bottom, then BUILD",
 	"The pistol button auto-aims at zombies",
+	"Zombies drop COINS: buy weapons in the purple shop",
+	"Fix the broken blue van and drive to a new area!",
 ]
 
 func _tutorial(delta: float) -> void:
-	if day_num > 1 or is_night or _hint_i >= 5:
+	if day_num > 1 or is_night or _hint_i >= HINTS_NL.size():
 		return
 	_hint_timer -= delta
 	if _hint_timer <= 0.0:
@@ -663,6 +735,121 @@ func _tutorial(delta: float) -> void:
 			list = HINTS_NL if Lang.lang == "nl" else HINTS_EN
 		hud.show_message(list[_hint_i], 5.0, Color(0.85, 0.95, 1.0))
 		_hint_i += 1
-		if _hint_i >= 5:
+		if _hint_i >= HINTS_NL.size():
 			Save.tutorial_done = true
 			Save.write()
+
+
+# ------------------------------------------------------------------ shop
+
+func _open_shop() -> void:
+	if is_night:
+		hud.show_message(Lang.t("shop_closed"), 1.6, Color(1, 0.6, 0.5))
+		Audio.play("error", -6.0)
+		return
+	if build_kind != "":
+		_toggle_build(build_kind)
+	state = State.SHOP
+	get_tree().paused = true
+	shop_ui.open_shop.call_deferred(player)
+
+
+func _on_shop_closed() -> void:
+	if state != State.SHOP:
+		return
+	state = State.PLAY
+	get_tree().paused = false
+
+
+func _on_weapons_changed() -> void:
+	hud.set_weapons(player.melee, player.gun)
+
+
+# ------------------------------------------------------------------ van / travel
+
+func _use_van(v: Prop) -> void:
+	if not v.repaired:
+		var cost := Res.van_cost(area)
+		if not player.has_cost(cost):
+			hud.show_message("%s: %s" % [Lang.t("van_need"), Res.dict_text(cost)], 2.0, Color(1, 0.6, 0.5))
+			Audio.play("error", -6.0)
+			return
+		player.pay(cost)
+		v.repair()
+		Audio.play("build", 0.0, 0.0)
+		Audio.play("reload", -2.0)
+		hud.show_message(Lang.t("van_fixed"), 2.0, Color(0.7, 1.0, 0.6))
+		return
+	if is_night:
+		hud.show_message(Lang.t("van_night"), 1.6, Color(1, 0.6, 0.5))
+		Audio.play("error", -6.0)
+		return
+	_travel()
+
+
+func _travel() -> void:
+	state = State.TRAVEL
+	if build_kind != "":
+		_toggle_build(build_kind)
+	world.process_mode = Node.PROCESS_MODE_DISABLED
+	var next := area + 1
+	var layer := CanvasLayer.new()
+	layer.layer = 25
+	add_child(layer)
+	var bg := ColorRect.new()
+	bg.color = Color(0.06, 0.05, 0.09, 0.0)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(bg)
+	var size := get_viewport().get_visible_rect().size
+	var label := UITheme.label("%s\n%s %d: %s" % [Lang.t("travel_to"), Lang.t("area"), next + 1, Res.area_name(next)], 16, Color(1.0, 0.9, 0.6))
+	label.add_theme_font_override("font", UITheme.font())
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.size = Vector2(size.x, 40)
+	label.position = Vector2(0, size.y / 2.0 - 50)
+	label.modulate.a = 0.0
+	layer.add_child(label)
+	var road := ColorRect.new()
+	road.color = Color(0.45, 0.32, 0.22)
+	road.size = Vector2(size.x, 6)
+	road.position = Vector2(0, size.y / 2.0 + 22)
+	road.modulate.a = 0.0
+	layer.add_child(road)
+	var car := TextureRect.new()
+	car.texture = Res.VAN_FIXED
+	car.position = Vector2(-50, size.y / 2.0 - 4)
+	layer.add_child(car)
+
+	Audio.play("reload", 0.0)
+	var tw := create_tween()
+	tw.tween_property(bg, "color:a", 1.0, 0.6)
+	tw.parallel().tween_property(label, "modulate:a", 1.0, 0.6)
+	tw.parallel().tween_property(road, "modulate:a", 1.0, 0.6)
+	tw.tween_property(car, "position:x", size.x + 10.0, 2.4).set_trans(Tween.TRANS_SINE)
+	await tw.finished
+
+	# Build the new area while the screen is black.
+	areas_done += 1
+	world.zombies.clear()
+	_build_world(next)
+	is_night = false
+	day_num += 1
+	world.day = day_num
+	phase_time = 0.0
+	phase_len = DAY_LENGTH + 10.0
+	player.heal(30.0)
+	hud.set_area(_area_title())
+	hud.set_score(_score())
+	_update_lighting()
+	_update_phase_ui()
+	CrazySDK.request_midgame()
+
+	var tw2 := create_tween()
+	tw2.tween_property(bg, "color:a", 0.0, 0.8)
+	tw2.parallel().tween_property(label, "modulate:a", 0.0, 0.5)
+	tw2.parallel().tween_property(road, "modulate:a", 0.0, 0.5)
+	tw2.parallel().tween_property(car, "modulate:a", 0.0, 0.3)
+	await tw2.finished
+	layer.queue_free()
+	state = State.PLAY
+	Audio.play("day_start", -2.0, 0.0)
+	hud.show_message("%s  +%d" % [_area_title(), AREA_BONUS], 3.0, Color(0.7, 1.0, 0.6))

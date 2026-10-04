@@ -218,6 +218,9 @@ func _die() -> void:
 
 func _drop() -> void:
 	var r := randf()
+	# Coins for the weapon shop.
+	var coins: int = {"walker": randi_range(1, 2), "runner": 3, "brute": 8}[type]
+	Pickup.spawn(world, "coins", coins, global_position)
 	if type == "brute":
 		Pickup.spawn(world, "scrap", 1, global_position)
 		Pickup.spawn(world, "ammo", 4, global_position)

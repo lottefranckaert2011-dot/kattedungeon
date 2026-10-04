@@ -29,10 +29,16 @@ var entities: Node2D     # y-sorted container for everything that stands on the 
 var decals: Node2D       # blood splats etc. drawn on the ground
 var ground_sprite: Sprite2D
 var day := 1
+var area := 0
+var info: Dictionary = {}
+var van: Prop
+var shop: Prop
 
 
-func generate(seed_value: int) -> void:
+func generate(seed_value: int, area_index := 0) -> void:
 	rng.seed = seed_value
+	area = area_index
+	info = Res.area_info(area)
 	ground.resize(W * H)
 	ground_var.resize(W * H)
 	ground.fill(G.GRASS)
@@ -145,21 +151,23 @@ func _layout_ground() -> void:
 				set_g(Vector2i(x, y), G.COBBLE)
 	# Small dirt paths to the house doors are added in _place_village.
 	# Pond in the south-west.
-	var pc := Vector2(15, 44)
-	for y in range(36, 53):
-		for x in range(5, 27):
-			var d := Vector2((x - pc.x) / 7.5, (y - pc.y) / 4.8)
-			var wob := sin(x * 1.3) * 0.06 + cos(y * 1.7) * 0.06
-			if d.length() < 1.0 + wob:
-				set_g(Vector2i(x, y), G.WATER)
+	if info.get("pond", true):
+		var pc := Vector2(15, 44)
+		for y in range(36, 53):
+			for x in range(5, 27):
+				var d := Vector2((x - pc.x) / 7.5, (y - pc.y) / 4.8)
+				var wob := sin(x * 1.3) * 0.06 + cos(y * 1.7) * 0.06
+				if d.length() < 1.0 + wob:
+					set_g(Vector2i(x, y), G.WATER)
 	# Farm field in the south-east.
-	for y in range(39, 47):
-		for x in range(46, 58):
-			set_g(Vector2i(x, y), G.SOIL)
-	for y in range(37, 49):
-		for x in range(44, 60):
-			if g_at(Vector2i(x, y)) != G.SOIL:
-				reserved[Vector2i(x, y)] = true
+	if info.get("farm", true):
+		for y in range(39, 47):
+			for x in range(46, 58):
+				set_g(Vector2i(x, y), G.SOIL)
+		for y in range(37, 49):
+			for x in range(44, 60):
+				if g_at(Vector2i(x, y)) != G.SOIL:
+					reserved[Vector2i(x, y)] = true
 	# Keep roads and square free of props.
 	for y in H:
 		for x in W:
@@ -300,12 +308,19 @@ func _place_village() -> void:
 	# Houses: top-left cell of the 4x4 sprite area. Doors face south.
 	var houses := [
 		[Vector2i(24, 18), "house_red"], [Vector2i(42, 18), "house_blue"],
+		[Vector2i(24, 32), "house_tan"], [Vector2i(42, 32), "house_white"],
 		[Vector2i(17, 18), "house_tan"], [Vector2i(49, 18), "house_red"],
-		[Vector2i(24, 32), "house_tan"], [Vector2i(42, 32), "house_blue"],
+		[Vector2i(49, 32), "house_blue"],
 	]
+	houses.resize(mini(houses.size(), info.get("houses", 7)))
+	# The weapon shop stands next to the village square in every area.
+	houses.append([Vector2i(29, 32), "shop"])
 	for h in houses:
 		var c: Vector2i = h[0]
-		add_prop(h[1], c + Vector2i(0, 3))
+		var house := add_prop(h[1], c + Vector2i(0, 3))
+		if h[1] == "shop":
+			shop = house
+			_add_shopkeeper(house.global_position + Vector2(-22, 6))
 		# a small dirt path from the door down to the road / grass
 		for y in range(c.y + 4, c.y + 6):
 			var pc := Vector2i(c.x + 1, y)
@@ -315,9 +330,12 @@ func _place_village() -> void:
 	add_prop("sign", Vector2i(ROAD_X - 3, 6), {"solid": false})
 	add_prop("sign", Vector2i(8, ROAD_Y - 3), {"solid": false})
 	# Fences around the farm field.
-	for x in range(45, 59):
-		if x != 51 and x != 52:
-			add_prop("fence", Vector2i(x, 38))
+	if info.get("farm", true):
+		for x in range(45, 59):
+			if x != 51 and x != 52:
+				add_prop("fence", Vector2i(x, 38))
+	# The broken van: fix it to drive to the next area.
+	van = add_prop("van", Vector2i(ROAD_X + 6, ROAD_Y + 1))
 	# Wrecked cars on the roads give scrap.
 	add_prop("car", Vector2i(ROAD_X - 1, 12))
 	add_prop("car", Vector2i(60, ROAD_Y))
@@ -325,7 +343,7 @@ func _place_village() -> void:
 	for c in [Vector2i(ROAD_X - 5, ROAD_Y - 5), Vector2i(ROAD_X + 5, ROAD_Y + 5), Vector2i(29, 23), Vector2i(47, 23)]:
 		if can_place_prop(c, [Vector2i.ZERO]):
 			add_prop("crate", c)
-	for c in [Vector2i(30, 37), Vector2i(41, 37), Vector2i(23, 23)]:
+	for c in [Vector2i(34, 38), Vector2i(41, 37), Vector2i(23, 23)]:
 		if can_place_prop(c, [Vector2i.ZERO]):
 			add_prop("barrel", c)
 
@@ -374,7 +392,8 @@ func _place_forest() -> void:
 			var c := Vector2i(x, y)
 			if reserved.has(c) or occupied.has(c) or g_at(c) != G.GRASS:
 				continue
-			var chance := 0.75 if band <= 1 else 0.45
+			var dense: float = info.get("trees", 1.0)
+			var chance := (0.75 if band <= 1 else 0.45) * clampf(dense, 0.8, 1.3)
 			if (x + y) % 2 == 0 and rng.randf() < chance:
 				var kind: String = ["tree_round", "tree_round2", "tree_pine", "tree_pine"][rng.randi() % 4]
 				add_prop(kind, c)
@@ -390,9 +409,14 @@ func _scatter() -> void:
 	]
 	for entry in table:
 		var kind: String = entry[0]
+		var target: int = entry[1]
+		if kind.begins_with("tree") or kind.begins_with("bush") or kind == "log" or kind == "stump":
+			target = int(target * info.get("trees", 1.0))
+		elif kind.begins_with("rock"):
+			target = int(target * info.get("rocks", 1.0))
 		var placed := 0
 		var tries := 0
-		while placed < entry[1] and tries < 400:
+		while placed < target and tries < 600:
 			tries += 1
 			var c := Vector2i(rng.randi_range(FOREST, W - FOREST - 1), rng.randi_range(FOREST, H - FOREST - 1))
 			if c.distance_to(Vector2i(ROAD_X, ROAD_Y + 4)) < 5:
@@ -441,6 +465,32 @@ func remove_prop_cells(p: Prop) -> void:
 			occupied.erase(c)
 			if p.solid:
 				astar.set_point_solid(c, false)
+
+func _add_shopkeeper(pos: Vector2) -> void:
+	var npc := Node2D.new()
+	npc.position = pos
+	var sh := Sprite2D.new()
+	sh.texture = Res.SHADOW
+	sh.z_index = -1
+	npc.add_child(sh)
+	var spr := Sprite2D.new()
+	spr.texture = Res.SHOPKEEPER
+	spr.hframes = 6
+	spr.vframes = 3
+	spr.offset = Vector2(0, -11)
+	npc.add_child(spr)
+	entities.add_child(npc)
+	# idle: look around now and then
+	var tw := npc.create_tween().set_loops()
+	tw.tween_callback(func(): spr.frame = 0).set_delay(2.0)
+	tw.tween_callback(func():
+		spr.frame = 12
+		spr.flip_h = false).set_delay(1.5)
+	tw.tween_callback(func(): spr.frame = 0).set_delay(1.0)
+	tw.tween_callback(func():
+		spr.frame = 12
+		spr.flip_h = true).set_delay(1.8)
+
 
 func new_day(n: int) -> void:
 	day = n

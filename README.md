@@ -7,6 +7,11 @@ Overdag hak je bomen, sla je rotsen kapot en doorzoek je huizen in het dorp.
 Als de nacht valt, luidt de klok en schuifelen de zombies over de wegen het dorp in.
 Zet barricades, stenen muren, spijkervallen, geschuttorens en kampvuren neer, en hou het zo lang mogelijk vol.
 
+Verslagen zombies laten **munten** vallen. Daarmee koop je in de **wapenwinkel** (het paarse huisje met de
+rood-witte luifel) betere wapens. In het dorp staat ook een **kapotte blauwe bus**: maak hem met schroot,
+hout en steen, en rijd naar een **nieuw gebied** (Het Donkere Bos, De Oude Boerderij, De Rotsvallei, ...).
+Je spullen en wapens neem je mee; je barricades blijven achter.
+
 ## Spelen
 
 | Actie | Toetsenbord / muis | Telefoon / tablet |
@@ -15,7 +20,8 @@ Zet barricades, stenen muren, spijkervallen, geschuttorens en kampvuren neer, en
 | Bijl (zombies, bomen, rotsen, kratten) | linkermuisknop / spatie | bijl-knop |
 | Schieten (kost kogels) | rechtermuisknop / F | pistool-knop (mikt automatisch) |
 | Bouwen | 1-5 kiezen, klik om te plaatsen, rechts klikken stopt | tik een gebouw onderaan, dan **BOUW** |
-| Huis / krat doorzoeken, geschut bijvullen | E | E-knop |
+| Huis / krat doorzoeken, winkel, bus maken / wegrijden, geschut bijvullen | E | E-knop |
+| Ander geweer pakken | Tab / muiswiel | `<>`-knop |
 | Eten (+30 HP) | R | appel-knop |
 | Meteen de nacht starten (bonuspunten) | N | knop bovenaan |
 | Pauze | P / Esc | pauzeknop |
@@ -30,6 +36,34 @@ Zet barricades, stenen muren, spijkervallen, geschuttorens en kampvuren neer, en
 | 4 | Geschut | 5 schroot + 3 hout + 2 steen | schiet automatisch (40 kogels, bijvullen met E) |
 | 5 | Kampvuur | 5 hout + 2 steen | licht in de nacht + geneest je als je ernaast staat |
 
+### Wapenwinkel
+
+| Wapen | Prijs | Wat doet het? |
+|---|---|---|
+| Bijl | start | hakken en vechten |
+| Knuppel | 25 munten | slaat zombies ver weg |
+| Machete | 60 munten | hard en snel, hakt 2x zo snel |
+| Kettingzaag | 150 munten | zaagt alles kapot (ook bomen) |
+| Pistool | start | 1 kogel per schot |
+| Jachtgeweer | 80 munten | 6 hagels per schot |
+| Machinegeweer | 140 munten | supersnel schieten |
+| 20 kogels / 2x eten | 10 / 8 munten | bijvullen |
+
+De winkel is alleen overdag open. Je krijgt munten van zombies, uit huizen en elke ochtend als bonus.
+
+### Gebieden en de bus
+
+Repareren kost in gebied 1: 8 schroot + 6 hout + 3 steen (elk volgend gebied wat meer).
+Wegrijden kan alleen overdag. Elk nieuw gebied geeft **+500 punten** en de dagen gaan gewoon door.
+
+| Gebied | Hoe ziet het eruit? |
+|---|---|
+| 1. Het Dorp | 7 huisjes + winkel, vijver, akker |
+| 2. Het Donkere Bos | heel veel bomen, donkerder, 3 huisjes |
+| 3. De Oude Boerderij | grote akker, weinig bomen |
+| 4. De Rotsvallei | veel rotsen (steen!) |
+| daarna | de gebieden komen terug, maar de zombies worden steeds sterker |
+
 ### Zombies
 
 Alle zombies zijn dorpelingen in dezelfde chibi-stijl als de speler: de boer met strohoed, de oma,
@@ -37,7 +71,9 @@ het meisje met de roze jurk, de jongen met de pet en de arbeider. Vanaf nacht 2 
 **rennende** zombies (rode pet), vanaf nacht 3 de grote **bruut** in tuinbroek, die barricades
 heel snel sloopt. Elke nacht komen er meer.
 
-**Score** = 10–35 punten per zombie + 250 per overleefde nacht. Je record wordt bewaard.
+**Score** = 10–35 punten per zombie + 250 per overleefde nacht + 500 per nieuw gebied. Je record wordt bewaard.
+
+Een dag duurt 110 seconden (de eerste) en daarna 80 seconden. Met **N** start je de nacht eerder (bonuspunten).
 
 ## Uploaden op CrazyGames
 

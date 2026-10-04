@@ -11,6 +11,7 @@ var move := Vector2.ZERO
 var active := false
 var show_interact := false
 var build_mode := false
+var can_swap := false
 
 var _joy_index := -1
 var _joy_center := Vector2.ZERO
@@ -35,6 +36,8 @@ func _layout() -> void:
 		"shoot": {"pos": Vector2(s.x - 66, s.y - 70), "r": 14.0, "icon": "gun"},
 		"eat": {"pos": Vector2(s.x - 24, s.y - 96), "r": 11.0, "icon": "food"},
 	}
+	if can_swap:
+		_buttons["swap"] = {"pos": Vector2(s.x - 92, s.y - 46), "r": 10.0, "icon": "", "text": "<>"}
 	if show_interact:
 		_buttons["interact"] = {"pos": Vector2(s.x - 70, s.y - 108), "r": 13.0, "icon": "", "text": "E"}
 	if build_mode:
