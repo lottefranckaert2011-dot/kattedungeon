@@ -33,6 +33,8 @@ func set_world(w) -> void:
 			col = Color8(126, 126, 136)
 		elif p.def.get("shop", false):
 			col = Color8(170, 110, 200)
+		elif p.def.get("home", false):
+			col = Color8(90, 220, 120)
 		elif p.def.get("house", false):
 			col = Color8(196, 136, 84)
 		elif p.kind in ["crate", "barrel", "car", "fence", "well", "sign", "log", "stump"]:
@@ -76,8 +78,15 @@ func _draw() -> void:
 		if blink:
 			_dot(sv.global_position, Color8(255, 230, 60), 3)
 	for a in world.allies:
+		if world.inside != null:
+			continue
 		_dot(a.global_position, Color8(110, 240, 110) if a.alive else Color8(90, 120, 90), 2)
+	if world.home:
+		_dot(world.home.global_position + Vector2(0, -8), Color8(90, 230, 120), 4)
 	if world.player:
-		_dot(world.player.global_position, Color(0.1, 0.06, 0.1), 4)
-		_dot(world.player.global_position, Color.WHITE, 2)
+		var pp: Vector2 = world.player.global_position
+		if world.inside != null:
+			pp = world.inside.global_position
+		_dot(pp, Color(0.1, 0.06, 0.1), 4)
+		_dot(pp, Color.WHITE, 2)
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.05, 0.03, 0.05), false, 1.0)

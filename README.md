@@ -50,6 +50,26 @@ Zombies vallen ook je teamleden aan. Raakt iemand gewond, dan ligt die even neer
 | 5 | Geschut | 5 schroot + 3 hout + 2 steen | schiet automatisch (40 kogels, bijvullen met E) |
 | 6 | Kampvuur | 5 hout + 2 steen | licht in de nacht + geneest je als je ernaast staat |
 
+### Huizen en je eigen huis
+
+- Bij elk huis kun je met **E naar binnen**. Kasten, kisten en boekenkasten die **glimmen** kun je doorzoeken:
+  je vindt schroeven (schroot), kogels, munten, eten en soms zelfs een **wapen**. Elke ochtend liggen er weer nieuwe spullen.
+- Je **eigen huis** is het groene huisje met het **hartje**. Daar begin je in elk dorp. Binnen ben je **veilig**,
+  je geneest langzaam en **je team gaat mee naar binnen**.
+- Zombies weten waar je bent en **bonken op de deur**. Bovenin zie je hoe sterk de deur nog is.
+  Gaat hij kapot, dan moet je naar buiten. Elke ochtend is de deur weer heel. Tip: zet barricades voor je deur!
+
+### Elke nacht moeilijker
+
+- Elke nacht komen er **meer zombies**, en ze worden **sterker, sneller en slaan harder**. De doodshoofdjes bovenin laten zien hoe gevaarlijk de nacht is.
+- Een nacht duurt een vaste tijd (je ziet de klok). Bij **zonsopgang verbranden** de zombies die nog over zijn.
+
+### Elk dorp is anders
+
+Elke keer dat je met de bus wegrijdt, wordt het nieuwe dorp **opnieuw gemaakt**: andere wegen, een ander plein,
+huizen op andere plekken, en de vijver en akker liggen ergens anders. Er zijn ook **seizoenen**: zomer, een
+**herfstdorp** met oranje en rode bomen, en een **winterdorp** met sneeuw, besneeuwde daken en een bevroren vijver.
+
 ### Wapenwinkel
 
 | Wapen | Prijs | Wat doet het? |
@@ -72,11 +92,13 @@ en staat hij in elk nieuw gebied klaar. Wegrijden kan alleen overdag. Elk nieuw 
 
 | Gebied | Hoe ziet het eruit? |
 |---|---|
-| 1. Het Dorp | 7 huisjes + winkel, vijver, akker |
-| 2. Het Donkere Bos | heel veel bomen, donkerder, 3 huisjes |
-| 3. De Oude Boerderij | grote akker, weinig bomen |
-| 4. De Rotsvallei | veel rotsen (steen!) |
-| daarna | de gebieden komen terug, maar de zombies worden steeds sterker |
+| 1. Het Dorp | zomer, je huis + 6 huisjes + winkel, vijver, akker |
+| 2. Het Donkere Bos | heel veel bomen, donkerder |
+| 3. Het Herfstdorp | oranje en rode bomen, akker |
+| 4. Het Winterdorp | sneeuw, besneeuwde daken, bevroren vijver |
+| 5. De Oude Boerderij | herfst, grote akker, weinig bomen |
+| 6. De Rotsvallei | veel rotsen (steen!) |
+| daarna | de seizoenen komen terug, maar elk dorp ziet er weer anders uit en de zombies worden steeds sterker |
 
 ### Zombies
 

@@ -14,6 +14,9 @@ var gun_icon: TextureRect
 var area_label: Label
 var allies_box: VBoxContainer
 var minimap: Minimap
+var danger_box: HBoxContainer
+var door_panel: Panel
+var door_fill: ColorRect
 var pointer: Control
 var _ally_rows := []      # [survivor, fill ColorRect, row]
 var _ptr_on := false
@@ -165,6 +168,35 @@ func _build_phase() -> void:
 	phase_bar.position = Vector2(7, 20)
 	phase_bar.size = Vector2(110, 3)
 	p.add_child(phase_bar)
+	# danger: one skull per night level (up to 6)
+	danger_box = HBoxContainer.new()
+	danger_box.position = Vector2(-62, 34)
+	danger_box.add_theme_constant_override("separation", 1)
+	danger_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(danger_box)
+	for i in 6:
+		var sk := TextureRect.new()
+		sk.texture = Res.icon("skull")
+		sk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sk.visible = false
+		danger_box.add_child(sk)
+	# door health while you are inside a house
+	door_panel = _panel(Vector2(-62, 48), Vector2(124, 14))
+	door_panel.visible = false
+	holder.add_child(door_panel)
+	var dl := UITheme.label(Lang.t("door"), 16)
+	dl.position = Vector2(4, -3)
+	door_panel.add_child(dl)
+	var dbg := ColorRect.new()
+	dbg.color = Color(0.15, 0.08, 0.1)
+	dbg.position = Vector2(40, 4)
+	dbg.size = Vector2(80, 6)
+	door_panel.add_child(dbg)
+	door_fill = ColorRect.new()
+	door_fill.color = Color(0.85, 0.65, 0.35)
+	door_fill.position = Vector2(41, 5)
+	door_fill.size = Vector2(78, 4)
+	door_panel.add_child(door_fill)
 	night_btn = UITheme.button("", 124)
 	night_btn.position = Vector2(-62, 36)
 	night_btn.add_theme_font_size_override("font_size", 16)
@@ -343,6 +375,18 @@ func _draw_pointer() -> void:
 	var lp := p - _ptr_dir * 12.0 + Vector2(-2, 5)
 	pointer.draw_string_outline(font, lp, "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, 4, Color(0.1, 0.06, 0.1))
 	pointer.draw_string(font, lp, "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1.0, 0.9, 0.3))
+
+
+func set_danger(level: int) -> void:
+	var n := clampi(level, 0, 6)
+	for i in danger_box.get_child_count():
+		danger_box.get_child(i).visible = i < n
+
+
+func set_door(on: bool, frac: float) -> void:
+	door_panel.visible = on
+	door_fill.size.x = 78.0 * clampf(frac, 0.0, 1.0)
+	door_fill.color = Color(0.85, 0.65, 0.35) if frac > 0.35 else Color(1.0, 0.35, 0.25)
 
 
 func set_area(text: String) -> void:

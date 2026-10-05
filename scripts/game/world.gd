@@ -9,8 +9,6 @@ const H := 56
 
 enum G { GRASS, DIRT, WATER, COBBLE, SOIL }
 
-const ROAD_Y := 27      # horizontal road rows ROAD_Y-1 .. ROAD_Y+1
-const ROAD_X := 36      # vertical road cols ROAD_X-1 .. ROAD_X+1
 const FOREST := 4       # thickness of the forest band around the map
 
 var ground := PackedInt32Array()
@@ -36,6 +34,14 @@ var area := 0
 var info: Dictionary = {}
 var van: Prop
 var shop: Prop
+var home: Prop
+var houses: Array = []
+var biome := "summer"
+var plaza := Vector2i(36, 28)
+var plaza_rect := Rect2i()
+var farm_rect := Rect2i()
+var inside = null          # the house Prop the player is in (or null)
+var interiors := {}        # house Prop -> Interior
 
 
 func generate(seed_value: int, area_index := 0) -> void:
@@ -56,6 +62,7 @@ func generate(seed_value: int, area_index := 0) -> void:
 	astar.default_estimate_heuristic = AStarGrid2D.HEURISTIC_OCTILE
 	astar.update()
 
+	y_sort_enabled = true
 	decals = Node2D.new()
 	decals.z_index = -5
 	add_child(decals)
@@ -63,14 +70,14 @@ func generate(seed_value: int, area_index := 0) -> void:
 	entities.y_sort_enabled = true
 	add_child(entities)
 
+	biome = info.get("biome", "summer")
 	_layout_ground()
+	_place_village()
 	_build_ground_texture()
 	_build_water_collision()
 	_build_borders()
-	_place_village()
 	_place_forest()
 	_scatter()
-	player_start = cell_center(Vector2i(ROAD_X, ROAD_Y + 4))
 
 
 # ------------------------------------------------------------------ helpers
@@ -97,7 +104,7 @@ func cell_center(c: Vector2i) -> Vector2:
 	return Vector2(c.x * T + T / 2.0, c.y * T + T / 2.0)
 
 func is_road(c: Vector2i) -> bool:
-	return abs(c.y - ROAD_Y) <= 1 or abs(c.x - ROAD_X) <= 1
+	return g_at(c) == G.DIRT
 
 func is_free(c: Vector2i) -> bool:
 	return in_bounds(c) and not occupied.has(c) and not structures.has(c) \
@@ -125,6 +132,8 @@ func nearest_walkable(c: Vector2i) -> Vector2i:
 func find_path(from: Vector2, to: Vector2) -> PackedVector2Array:
 	var a := nearest_walkable(to_cell(from))
 	var b := nearest_walkable(to_cell(to))
+	if not in_bounds(a) or not in_bounds(b):
+		return PackedVector2Array()
 	if a == b:
 		return PackedVector2Array()
 	var ids := astar.get_id_path(a, b)
@@ -136,41 +145,42 @@ func find_path(from: Vector2, to: Vector2) -> PackedVector2Array:
 
 # ------------------------------------------------------------------ ground
 
+## Every area gets its own layout: where the square is, which roads leave it,
+## a pond and a farm field in random spots.
 func _layout_ground() -> void:
-	# Roads (dirt) with slightly wobbly edges.
-	for x in W:
-		var wob := 1 if rng.randf() < 0.25 else 0
-		for y in range(ROAD_Y - 1 - wob, ROAD_Y + 2):
-			set_g(Vector2i(x, y), G.DIRT)
-	for y in H:
-		var wob := 1 if rng.randf() < 0.25 else 0
-		for x in range(ROAD_X - 1, ROAD_X + 2 + wob):
-			set_g(Vector2i(x, y), G.DIRT)
-	# Village square (cobblestones).
-	for y in range(ROAD_Y - 4, ROAD_Y + 5):
-		for x in range(ROAD_X - 5, ROAD_X + 6):
-			var corner: bool = abs(y - ROAD_Y) == 4 and abs(x - ROAD_X) == 5
+	var pw := rng.randi_range(9, 13)
+	var ph := rng.randi_range(7, 9)
+	if area == 0:
+		plaza = Vector2i(36, 28)
+	else:
+		plaza = Vector2i(rng.randi_range(22, W - 22), rng.randi_range(17, H - 17))
+	plaza_rect = Rect2i(plaza.x - pw / 2, plaza.y - ph / 2, pw, ph)
+
+	var dirs: Array = [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]
+	if area > 0:
+		dirs.shuffle()
+		dirs = dirs.slice(0, rng.randi_range(2, 4))
+	for d in dirs:
+		_carve_road(plaza, d)
+	# sometimes a side road branches off towards another edge
+	if area > 0 and rng.randf() < 0.6:
+		var d0: Vector2i = dirs[0]
+		var start := plaza + d0 * rng.randi_range(8, 12)
+		var side := Vector2i(d0.y, d0.x) * (1 if rng.randf() < 0.5 else -1)
+		_carve_road(start, side)
+
+	for y in range(plaza_rect.position.y, plaza_rect.end.y):
+		for x in range(plaza_rect.position.x, plaza_rect.end.x):
+			var corner := (x == plaza_rect.position.x or x == plaza_rect.end.x - 1) \
+				and (y == plaza_rect.position.y or y == plaza_rect.end.y - 1)
 			if not corner:
 				set_g(Vector2i(x, y), G.COBBLE)
-	# Small dirt paths to the house doors are added in _place_village.
-	# Pond in the south-west.
+
 	if info.get("pond", true):
-		var pc := Vector2(15, 44)
-		for y in range(36, 53):
-			for x in range(5, 27):
-				var d := Vector2((x - pc.x) / 7.5, (y - pc.y) / 4.8)
-				var wob := sin(x * 1.3) * 0.06 + cos(y * 1.7) * 0.06
-				if d.length() < 1.0 + wob:
-					set_g(Vector2i(x, y), G.WATER)
-	# Farm field in the south-east.
+		_make_pond()
 	if info.get("farm", true):
-		for y in range(39, 47):
-			for x in range(46, 58):
-				set_g(Vector2i(x, y), G.SOIL)
-		for y in range(37, 49):
-			for x in range(44, 60):
-				if g_at(Vector2i(x, y)) != G.SOIL:
-					reserved[Vector2i(x, y)] = true
+		_make_farm()
+
 	# Keep roads and square free of props.
 	for y in H:
 		for x in W:
@@ -181,12 +191,91 @@ func _layout_ground() -> void:
 				astar.set_point_solid(c, true)
 
 
+## A 3-wide dirt road from `from` in direction `dir` to the edge of the map, with gentle bends.
+func _carve_road(from: Vector2i, dir: Vector2i) -> void:
+	var p := from
+	var side := Vector2i(dir.y, dir.x)
+	var steps := 0
+	while in_bounds(p):
+		for o in range(-1, 2):
+			var c := p + side * o
+			if g_at(c) != G.COBBLE:
+				set_g(c, G.DIRT)
+		if rng.randf() < 0.22:
+			var w := p + side * (2 if rng.randf() < 0.5 else -2)
+			if g_at(w) == G.GRASS:
+				set_g(w, G.DIRT)
+		p += dir
+		steps += 1
+		# bend a little once we are away from the square (not too close to the edge)
+		var edge_dist := mini(mini(p.x, p.y), mini(W - 1 - p.x, H - 1 - p.y))
+		if steps > 7 and edge_dist > FOREST + 2 and rng.randf() < 0.12:
+			var np := p + side * (1 if rng.randf() < 0.5 else -1)
+			var pd := mini(mini(np.x, np.y), mini(W - 1 - np.x, H - 1 - np.y))
+			if pd > FOREST + 2:
+				for o in range(-1, 2):
+					set_g(p + side * o, G.DIRT)
+				p = np
+
+
+func _make_pond() -> void:
+	for attempt in 40:
+		var rx := rng.randf_range(5.0, 8.5)
+		var ry := rng.randf_range(3.5, 5.5)
+		var c := Vector2(rng.randi_range(FOREST + 8, W - FOREST - 9), rng.randi_range(FOREST + 6, H - FOREST - 7))
+		if c.distance_to(Vector2(plaza)) < 16.0:
+			continue
+		var cells: Array[Vector2i] = []
+		var ok := true
+		for y in range(int(c.y - ry - 1), int(c.y + ry + 2)):
+			for x in range(int(c.x - rx - 1), int(c.x + rx + 2)):
+				var d := Vector2((x - c.x) / rx, (y - c.y) / ry)
+				var wob := sin(x * 1.3) * 0.06 + cos(y * 1.7) * 0.06
+				if d.length() < 1.0 + wob:
+					var cc := Vector2i(x, y)
+					# keep two tiles of grass between the pond and any road
+					for dy in range(-2, 3):
+						for dx in range(-2, 3):
+							if g_at(cc + Vector2i(dx, dy)) != G.GRASS:
+								ok = false
+					cells.append(cc)
+		if ok and cells.size() > 20:
+			for cc in cells:
+				set_g(cc, G.WATER)
+			return
+
+
+func _make_farm() -> void:
+	for attempt in 60:
+		var fw := rng.randi_range(9, 13)
+		var fh := rng.randi_range(6, 8)
+		var r := Rect2i(rng.randi_range(FOREST + 3, W - FOREST - fw - 3), rng.randi_range(FOREST + 4, H - FOREST - fh - 3), fw, fh)
+		if Vector2(r.get_center()).distance_to(Vector2(plaza)) < 13.0:
+			continue
+		var ok := true
+		for y in range(r.position.y - 2, r.end.y + 2):
+			for x in range(r.position.x - 2, r.end.x + 2):
+				if g_at(Vector2i(x, y)) != G.GRASS:
+					ok = false
+		if not ok:
+			continue
+		for y in range(r.position.y, r.end.y):
+			for x in range(r.position.x, r.end.x):
+				set_g(Vector2i(x, y), G.SOIL)
+		for y in range(r.position.y - 2, r.end.y + 2):
+			for x in range(r.position.x - 2, r.end.x + 2):
+				if g_at(Vector2i(x, y)) != G.SOIL:
+					reserved[Vector2i(x, y)] = true
+		farm_rect = r
+		return
+
+
 func _grass_like(c: Vector2i) -> bool:
 	return g_at(c) == G.GRASS
 
 func _build_ground_texture() -> void:
-	var tiles := Res.TILES.get_image()
-	var edges := Res.EDGES.get_image()
+	var tiles: Image = Res.season_tiles(biome).get_image()
+	var edges: Image = Res.season_edges(biome).get_image()
 	tiles.convert(Image.FORMAT_RGBA8)
 	edges.convert(Image.FORMAT_RGBA8)
 	var img := Image.create(W * T, H * T, false, Image.FORMAT_RGBA8)
@@ -208,7 +297,7 @@ func _build_ground_texture() -> void:
 				G.DIRT:
 					t = 6 + (v / 100) % 3
 				G.WATER:
-					t = 11 if v % 100 < 7 else 9 + (v / 100) % 2
+					t = 11 if v % 100 < 7 and biome != "winter" else 9 + (v / 100) % 2
 				G.COBBLE:
 					t = 12 + 3 * ((v / 100) % 2)
 				G.SOIL:
@@ -308,47 +397,80 @@ func can_place_prop(c: Vector2i, footprint: Array) -> bool:
 
 
 func _place_village() -> void:
-	# Houses: top-left cell of the 4x4 sprite area. Doors face south.
-	var houses := [
-		[Vector2i(24, 18), "house_red"], [Vector2i(42, 18), "house_blue"],
-		[Vector2i(24, 32), "house_tan"], [Vector2i(42, 32), "house_white"],
-		[Vector2i(17, 18), "house_tan"], [Vector2i(49, 18), "house_red"],
-		[Vector2i(49, 32), "house_blue"],
-	]
-	houses.resize(mini(houses.size(), info.get("houses", 7)))
-	# The weapon shop stands next to the village square in every area.
-	houses.append([Vector2i(29, 32), "shop"])
-	for h in houses:
-		var c: Vector2i = h[0]
-		var house := add_prop(h[1], c + Vector2i(0, 3))
-		if h[1] == "shop":
+	# Houses stand around the square in different spots every time.
+	var kinds: Array = ["shop", "home"]
+	var pool := ["house_red", "house_blue", "house_tan", "house_white"]
+	for i in int(info.get("houses", 7)):
+		kinds.append(pool[rng.randi() % pool.size()])
+	for k in kinds:
+		var best = null
+		var best_d := INF
+		for i in 160:
+			var tl := Vector2i(rng.randi_range(FOREST + 2, W - FOREST - 6), rng.randi_range(FOREST + 3, H - FOREST - 7))
+			if not _house_lot_ok(tl):
+				continue
+			var d := Vector2(tl + Vector2i(2, 4)).distance_to(Vector2(plaza)) + rng.randf() * 8.0
+			if d < best_d:
+				best_d = d
+				best = tl
+		if best == null:
+			continue
+		var tl: Vector2i = best
+		var house := add_prop(k, tl + Vector2i(0, 3))
+		houses.append(house)
+		if k == "shop":
 			shop = house
-			_add_shopkeeper(house.global_position + Vector2(-22, 6))
-		# a small dirt path from the door down to the road / grass
-		for y in range(c.y + 4, c.y + 6):
-			var pc := Vector2i(c.x + 1, y)
-			if g_at(pc) == G.GRASS:
-				reserved[pc] = true
-	add_prop("well", Vector2i(ROAD_X + 3, ROAD_Y - 3))
-	add_prop("sign", Vector2i(ROAD_X - 3, 6), {"solid": false})
-	add_prop("sign", Vector2i(8, ROAD_Y - 3), {"solid": false})
-	# Fences around the farm field.
-	if info.get("farm", true):
-		for x in range(45, 59):
-			if x != 51 and x != 52:
-				add_prop("fence", Vector2i(x, 38))
-	# The broken van: fix it to drive to the next area.
-	van = add_prop("van", Vector2i(ROAD_X + 6, ROAD_Y + 1))
+			_add_shopkeeper(house.position + Vector2(-22, 6))
+		elif k == "home":
+			home = house
+		# little dirt patch in front of the door
+		for x in range(tl.x + 1, tl.x + 3):
+			set_g(Vector2i(x, tl.y + 4), G.DIRT)
+			reserved[Vector2i(x, tl.y + 4)] = true
+			reserved[Vector2i(x, tl.y + 5)] = true
+		if rng.randf() < 0.5 and can_place_prop(tl + Vector2i(-1, 3), [Vector2i.ZERO]):
+			add_prop("crate" if rng.randf() < 0.5 else "barrel", tl + Vector2i(-1, 3))
+
+	# Square: your van and a well.
+	van = add_prop("van", Vector2i(plaza_rect.position.x + 1, plaza_rect.position.y + 1))
+	add_prop("well", Vector2i(plaza_rect.end.x - 3, plaza_rect.position.y + 1))
+	if home:
+		player_start = home.interact_point() + Vector2(0, 12)
+	else:
+		player_start = cell_center(plaza)
+
+	# Fences along the farm field.
+	if farm_rect.size != Vector2i.ZERO:
+		var gap := farm_rect.position.x + farm_rect.size.x / 2
+		for x in range(farm_rect.position.x - 1, farm_rect.end.x + 1):
+			if abs(x - gap) > 1:
+				add_prop("fence", Vector2i(x, farm_rect.position.y - 1))
+
 	# Wrecked cars on the roads give scrap.
-	add_prop("car", Vector2i(ROAD_X - 1, 12))
-	add_prop("car", Vector2i(60, ROAD_Y))
-	# Crates and barrels around the square.
-	for c in [Vector2i(ROAD_X - 5, ROAD_Y - 5), Vector2i(ROAD_X + 5, ROAD_Y + 5), Vector2i(29, 23), Vector2i(47, 23)]:
-		if can_place_prop(c, [Vector2i.ZERO]):
-			add_prop("crate", c)
-	for c in [Vector2i(34, 38), Vector2i(41, 37), Vector2i(23, 23)]:
-		if can_place_prop(c, [Vector2i.ZERO]):
-			add_prop("barrel", c)
+	var placed := 0
+	for i in 200:
+		if placed >= 2:
+			break
+		var c := Vector2i(rng.randi_range(2, W - 5), rng.randi_range(2, H - 3))
+		if Vector2(c).distance_to(Vector2(plaza)) < 9.0:
+			continue
+		var ok := true
+		for dx in 3:
+			var cc := c + Vector2i(dx, 0)
+			if g_at(cc) != G.DIRT or occupied.has(cc):
+				ok = false
+		if ok:
+			add_prop("car", c)
+			placed += 1
+
+
+func _house_lot_ok(tl: Vector2i) -> bool:
+	for y in range(tl.y - 1, tl.y + 6):
+		for x in range(tl.x - 1, tl.x + 5):
+			var c := Vector2i(x, y)
+			if not in_bounds(c) or g_at(c) != G.GRASS or reserved.has(c) or occupied.has(c):
+				return false
+	return true
 
 
 func _place_forest() -> void:
@@ -366,13 +488,15 @@ func _place_forest() -> void:
 		for y in range(g.position.y, g.end.y):
 			for x in range(g.position.x, g.end.x):
 				reserved[Vector2i(x, y)] = true
-	# Spawn cells: road ends and gaps (just inside the map).
-	for y in range(ROAD_Y - 1, ROAD_Y + 2):
-		spawn_cells.append(Vector2i(0, y))
-		spawn_cells.append(Vector2i(W - 1, y))
-	for x in range(ROAD_X - 1, ROAD_X + 2):
-		spawn_cells.append(Vector2i(x, 0))
-		spawn_cells.append(Vector2i(x, H - 1))
+	# Spawn cells: where the roads leave the map, plus the gaps (just inside the map).
+	for x in W:
+		for y in [0, H - 1]:
+			if g_at(Vector2i(x, y)) == G.DIRT:
+				spawn_cells.append(Vector2i(x, y))
+	for y in H:
+		for x in [0, W - 1]:
+			if g_at(Vector2i(x, y)) == G.DIRT:
+				spawn_cells.append(Vector2i(x, y))
 	for g in gaps:
 		var c := g.position + g.size / 2
 		c.x = clampi(c.x, 0, W - 1)
@@ -422,7 +546,7 @@ func _scatter() -> void:
 		while placed < target and tries < 600:
 			tries += 1
 			var c := Vector2i(rng.randi_range(FOREST, W - FOREST - 1), rng.randi_range(FOREST, H - FOREST - 1))
-			if c.distance_to(Vector2i(ROAD_X, ROAD_Y + 4)) < 5:
+			if Vector2(c).distance_to(player_start / T) < 5.0:
 				continue
 			var fp: Array = Prop.footprint_of(kind)
 			if not can_place_prop(c, fp):
@@ -511,7 +635,23 @@ func _add_shopkeeper(pos: Vector2) -> void:
 		spr.flip_h = true).set_delay(1.8)
 
 
+## The room behind a house door (built the first time you go in).
+func get_interior(h) -> Interior:
+	if not interiors.has(h):
+		var it := Interior.new()
+		it.y_sort_enabled = true
+		add_child(it)
+		it.setup(self, h, interiors.size())
+		interiors[h] = it
+	return interiors[h]
+
+
 func new_day(n: int) -> void:
+	for h in houses:
+		if h.door:
+			h.door.repair()
+	for h in interiors:
+		interiors[h].refill()
 	day = n
 	for e in entities.get_children():
 		if e is Prop:

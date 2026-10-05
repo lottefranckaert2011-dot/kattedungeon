@@ -20,11 +20,12 @@ const DEFS := {
 	"car": {"hp": -1, "loot": {}, "random_loot": 3, "search": "car", "col": Vector2(36, 10), "fp": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)]},
 	"well": {"hp": -1, "col": Vector2(20, 9), "fp": [Vector2i(0, 0), Vector2i(1, 0)]},
 	"sign": {"hp": 1, "tool": "chop", "loot": {"wood": [1, 1]}, "col": Vector2(4, 3)},
-	"house_red": {"hp": -1, "random_loot": 4, "search": "house", "col": Vector2(56, 24), "house": true},
-	"house_blue": {"hp": -1, "random_loot": 4, "search": "house", "col": Vector2(56, 24), "house": true},
-	"house_tan": {"hp": -1, "random_loot": 4, "search": "house", "col": Vector2(56, 24), "house": true},
-	"house_white": {"hp": -1, "random_loot": 4, "search": "house", "col": Vector2(56, 24), "house": true},
+	"house_red": {"hp": -1, "enter": true, "col": Vector2(56, 24), "house": true},
+	"house_blue": {"hp": -1, "enter": true, "col": Vector2(56, 24), "house": true},
+	"house_tan": {"hp": -1, "enter": true, "col": Vector2(56, 24), "house": true},
+	"house_white": {"hp": -1, "enter": true, "col": Vector2(56, 24), "house": true},
 	"shop": {"hp": -1, "col": Vector2(56, 24), "house": true, "shop": true},
+	"home": {"hp": -1, "enter": true, "col": Vector2(56, 24), "house": true, "home": true},
 	"van": {"hp": -1, "col": Vector2(40, 10), "van": true, "fp": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)]},
 }
 
@@ -37,6 +38,7 @@ var hp := 1
 var solid := true
 var searched := false
 var repaired := false
+var door: HouseDoor = null
 var sprite: Sprite2D
 var _smoke: CPUParticles2D
 var _shake := 0.0
@@ -80,7 +82,7 @@ func setup(w, k: String, c: Vector2i, extra := {}) -> void:
 				world.reserved[c + Vector2i(x, y)] = true
 
 	position = Vector2(c.x * 16 + width_cells * 8, c.y * 16 + 14)
-	var tex: Texture2D = Res.PROPS[k]
+	var tex: Texture2D = Res.prop_tex(k, world.biome)
 	var shadow := Sprite2D.new()
 	shadow.texture = Res.SHADOW
 	shadow.z_index = -1
@@ -105,6 +107,11 @@ func setup(w, k: String, c: Vector2i, extra := {}) -> void:
 		if def.get("house", false):
 			cs.position = Vector2(0, -12)
 		add_child(cs)
+
+	if def.get("enter", false):
+		door = HouseDoor.new()
+		door.setup(self, 1000.0 if def.get("home", false) else 120.0)
+		add_child(door)
 
 	if def.get("van", false):
 		_smoke = CPUParticles2D.new()

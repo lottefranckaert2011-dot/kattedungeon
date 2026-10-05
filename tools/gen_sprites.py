@@ -624,7 +624,7 @@ def edge_overlay(side, bank=False, seed=0):
     return cv
 
 
-def make_tiles():
+def make_tiles(suffix=""):
     tiles = []
     for i in range(4):
         tiles.append(tile_grass(10 + i))                  # 0-3 grass
@@ -642,13 +642,13 @@ def make_tiles():
     sheet = Image.new("RGBA", (16 * 16, 16), (0, 0, 0, 0))
     for i, t in enumerate(tiles):
         sheet.alpha_composite(t.img, (i * 16, 0))
-    sheet.save(os.path.join(OUT, "tiles.png"))
+    sheet.save(os.path.join(OUT, "tiles%s.png" % suffix))
 
     edges = Image.new("RGBA", (16 * 8, 32), (0, 0, 0, 0))
     for i, s in enumerate(["n", "s", "e", "w", "ne", "nw", "se", "sw"]):
         edges.alpha_composite(edge_overlay(s, False, 3).img, (i * 16, 0))
         edges.alpha_composite(edge_overlay(s, True, 5).img, (i * 16, 16))
-    edges.save(os.path.join(OUT, "edges.png"))
+    edges.save(os.path.join(OUT, "edges%s.png" % suffix))
 
 
 # ---------------------------------------------------------------- props
@@ -1613,6 +1613,286 @@ def make_slime():
     pd.img.save(os.path.join(OUT, "puddle.png"))
 
 
+# ---------------------------------------------------------------- seasons
+
+def recolor(cv, mapping):
+    """Swap exact RGB colours (used for autumn leaves and snowy roofs)."""
+    out = Canvas(cv.w, cv.h)
+    for y in range(cv.h):
+        for x in range(cv.w):
+            px = cv.get(x, y)
+            if px[3] == 0:
+                continue
+            c = mapping.get(px[:3], px[:3])
+            out.px(x, y, c, px[3])
+    return out
+
+
+SEASON_GROUND = {
+    "autumn": dict(GRASS=(150, 158, 78), GRASS_D=(124, 132, 62), GRASS_L=(186, 182, 98)),
+    "winter": dict(GRASS=(230, 236, 244), GRASS_D=(196, 208, 226), GRASS_L=(250, 252, 255),
+                   DIRT=(166, 150, 140), DIRT_D=(140, 126, 118), DIRT_L=(196, 188, 184),
+                   WATER=(168, 208, 232), WATER_D=(136, 182, 216), WATER_L=(226, 242, 252)),
+}
+
+LEAVES_AUTUMN = {TREE: (214, 128, 52), TREE_D: (170, 86, 40), TREE_L: (240, 178, 74), TREE_O: (90, 44, 24)}
+LEAVES_RED = {TREE: (196, 70, 50), TREE_D: (150, 44, 38), TREE_L: (232, 116, 72), TREE_O: (80, 30, 24)}
+LEAVES_SNOW = {TREE: (234, 238, 246), TREE_D: (196, 208, 228), TREE_L: (252, 253, 255), TREE_O: (84, 96, 120)}
+PINE_SNOW = {(72, 158, 116): (248, 250, 255), (44, 126, 96): (52, 120, 96)}
+ROOF_SNOW = {
+    (230, 180, 110): (238, 242, 250), (204, 148, 86): (200, 212, 232), (244, 204, 140): (252, 253, 255),
+    (150, 200, 96): (226, 234, 244), (112, 168, 76): (206, 218, 236), (240, 220, 90): (238, 242, 250),
+}
+
+
+def season_tiles():
+    g = globals()
+    for season, colors in SEASON_GROUND.items():
+        saved = {k: g[k] for k in colors}
+        g.update(colors)
+        make_tiles("_" + season)
+        g.update(saved)
+
+
+def snowy_roof(cv):
+    out = recolor(cv, ROOF_SNOW)
+    # icicles under the eave
+    for y in range(out.h - 1):
+        for x in range(2, out.w - 2, 5):
+            if out.get(x, y)[:3] == darker((222, 132, 92), 0.75) and out.get(x, y + 1)[3] == 255:
+                out.px(x, y + 1, (200, 230, 250))
+                out.px(x, y + 2, (220, 240, 255))
+                break
+    return out
+
+
+def make_home(snow=False):
+    cv = make_house((126, 170, 110), (104, 146, 92), (200, 64, 60), 9)
+    w = cv.w
+    # heart sign next to the door + flower boxes: "this is your home"
+    hx, hy = w // 2 + 8, 40
+    cv.rect(hx, hy, hx + 8, hy + 7, (96, 62, 40))
+    cv.rect(hx + 1, hy + 1, hx + 7, hy + 6, (240, 226, 196))
+    heart = [".X.X.", "XXXXX", "XXXXX", ".XXX.", "..X.."]
+    for yy, row in enumerate(heart):
+        for xx, ch in enumerate(row):
+            if ch == "X":
+                cv.px(hx + 2 + xx, hy + 1 + yy, (220, 50, 70))
+    for bx in (9, w - 20):
+        cv.rect(bx, 49, bx + 11, 51, (120, 80, 50))
+        for i in range(0, 11, 3):
+            cv.px(bx + i, 48, (240, 90, 110))
+            cv.px(bx + i + 1, 48, (250, 220, 80))
+    cv.outline()
+    return snowy_roof(cv) if snow else cv
+
+
+def season_props():
+    save = lambda c, n: c.img.save(os.path.join(OUT, n + ".png"))
+    save(recolor(make_round_tree(11), LEAVES_AUTUMN), "tree_round_autumn")
+    save(recolor(make_round_tree(23), LEAVES_RED), "tree_round2_autumn")
+    save(recolor(make_fruit_tree(31), LEAVES_AUTUMN), "tree_fruit_autumn")
+    save(recolor(make_bush(3), LEAVES_AUTUMN), "bush_autumn")
+    save(recolor(make_bush(4, berries=True), LEAVES_RED), "bush_berry_autumn")
+    save(recolor(make_round_tree(11), LEAVES_SNOW), "tree_round_winter")
+    save(recolor(make_round_tree(23), LEAVES_SNOW), "tree_round2_winter")
+    save(recolor(make_fruit_tree(31), LEAVES_SNOW), "tree_fruit_winter")
+    save(recolor(make_pine(5), PINE_SNOW), "tree_pine_winter")
+    save(recolor(make_bush(3), LEAVES_SNOW), "bush_winter")
+    save(recolor(make_bush(4, berries=True), LEAVES_SNOW), "bush_berry_winter")
+    houses = {
+        "house_red": ((178, 74, 62), (150, 58, 50), (180, 50, 46), 1),
+        "house_blue": ((112, 182, 190), (90, 152, 162), (70, 120, 190), 2),
+        "house_tan": ((196, 156, 96), (168, 128, 76), (110, 70, 48), 3),
+        "house_white": ((214, 200, 170), (186, 172, 142), (60, 120, 80), 4),
+    }
+    for name, args in houses.items():
+        save(snowy_roof(make_house(*args)), name + "_winter")
+    save(snowy_roof(make_shop()), "shop_winter")
+    save(make_home(), "home")
+    save(make_home(True), "home_winter")
+
+
+# ---------------------------------------------------------------- house interiors
+
+WOOD, WOOD_D, WOOD_L = (150, 100, 60), (112, 72, 44), (190, 140, 92)
+
+
+def make_interior():
+    save = lambda c, n: c.img.save(os.path.join(OUT, "in_" + n + ".png"))
+    # floors (16x16)
+    for name, base in (("floor", (176, 128, 84)), ("floor_home", (190, 142, 94))):
+        cv = Canvas(16, 16)
+        cv.rect(0, 0, 15, 15, base)
+        for y in (3, 7, 11, 15):
+            cv.rect(0, y, 15, y, darker(base, 0.82))
+        for y, x in ((0, 5), (4, 11), (8, 2), (12, 9)):
+            cv.rect(x, y, x, y + 2, darker(base, 0.85))
+        cv.px(3, 1, lighter(base, 0.15))
+        cv.px(12, 9, lighter(base, 0.15))
+        save(cv, name)
+    # walls (16x32): wallpaper + wooden trim; one sheet per wallpaper colour, frame 1 = window
+    papers = {"a": ((206, 182, 140), (190, 164, 122)), "b": ((150, 178, 140), (134, 162, 124)),
+              "c": ((150, 168, 196), (134, 152, 182)), "home": ((214, 160, 140), (198, 142, 124))}
+    for name, (paper, stripe) in papers.items():
+        sheet = Canvas(32, 32)
+        for f in range(2):
+            cv = Canvas(16, 32)
+            cv.rect(0, 0, 15, 25, paper)
+            for x in range(1, 16, 4):
+                cv.rect(x, 0, x, 25, stripe)
+            cv.rect(0, 0, 15, 1, darker(paper, 0.7))
+            cv.rect(0, 26, 15, 28, WOOD)
+            cv.rect(0, 26, 15, 26, WOOD_L)
+            cv.rect(0, 29, 15, 31, darker(WOOD, 0.7))
+            if f == 1:
+                cv.rect(3, 6, 12, 18, (90, 60, 44))
+                cv.rect(4, 7, 11, 17, (120, 170, 210))
+                cv.rect(4, 12, 11, 12, (90, 60, 44))
+                cv.rect(7, 7, 8, 17, (90, 60, 44))
+                cv.rect(4, 7, 6, 7, (200, 230, 250))
+                cv.rect(2, 19, 13, 19, WOOD_L)
+            sheet.paste(cv, f * 16, 0)
+        save(sheet, "wall_" + name)
+
+    # bed 16x28
+    for name, blanket in (("bed", (200, 70, 70)), ("bed_blue", (70, 110, 190))):
+        cv = Canvas(16, 28)
+        cv.rect(1, 1, 14, 6, WOOD)
+        cv.rect(1, 1, 14, 1, WOOD_L)
+        cv.rect(2, 6, 13, 24, (236, 232, 222))
+        cv.rect(3, 7, 12, 10, (250, 250, 246))
+        cv.rect(2, 11, 13, 24, blanket)
+        cv.rect(2, 11, 13, 11, lighter(blanket, 0.3))
+        cv.rect(12, 11, 13, 24, darker(blanket))
+        for y in (15, 19):
+            cv.rect(2, y, 13, y, darker(blanket, 0.85))
+        cv.rect(1, 24, 14, 26, WOOD_D)
+        cv.outline()
+        save(cv, name)
+    # table 28x18 and chair 10x14
+    cv = Canvas(28, 18)
+    cv.rect(1, 2, 26, 9, WOOD_L)
+    cv.rect(1, 9, 26, 10, WOOD)
+    cv.rect(1, 11, 26, 11, WOOD_D)
+    for x in (2, 24):
+        cv.rect(x, 11, x + 1, 16, WOOD_D)
+    cv.rect(8, 4, 11, 6, (240, 240, 236))
+    cv.rect(16, 3, 18, 6, (200, 80, 60))
+    cv.outline()
+    save(cv, "table")
+    cv = Canvas(10, 14)
+    cv.rect(1, 1, 8, 6, WOOD)
+    cv.rect(1, 7, 8, 8, WOOD_L)
+    cv.rect(1, 9, 2, 12, WOOD_D)
+    cv.rect(7, 9, 8, 12, WOOD_D)
+    cv.outline()
+    save(cv, "chair")
+    # cupboard 18x28 (closed / open)
+    for opened in (False, True):
+        cv = Canvas(18, 28)
+        cv.rect(1, 1, 16, 26, WOOD)
+        cv.rect(1, 1, 16, 2, WOOD_L)
+        cv.rect(15, 1, 16, 26, WOOD_D)
+        if opened:
+            cv.rect(3, 4, 14, 23, (60, 40, 30))
+            cv.rect(3, 13, 14, 13, WOOD_D)
+            cv.rect(0, 4, 1, 23, WOOD_L)
+            cv.rect(16, 4, 17, 23, WOOD_L)
+        else:
+            cv.rect(3, 4, 8, 23, WOOD_L)
+            cv.rect(9, 4, 14, 23, WOOD_L)
+            cv.rect(8, 4, 9, 23, WOOD_D)
+            cv.px(7, 13, (240, 210, 110))
+            cv.px(10, 13, (240, 210, 110))
+        cv.rect(1, 24, 16, 26, WOOD_D)
+        cv.outline()
+        save(cv, "cupboard_open" if opened else "cupboard")
+    # chest 18x14 (closed / open)
+    for opened in (False, True):
+        cv = Canvas(18, 16)
+        top = 6 if not opened else 7
+        cv.rect(1, top, 16, 14, WOOD)
+        cv.rect(1, 14, 16, 14, WOOD_D)
+        for x in (4, 12):
+            cv.rect(x, top, x + 1, 14, (120, 124, 136))
+        if opened:
+            cv.rect(1, 1, 16, 5, WOOD_D)
+            cv.rect(2, 6, 15, 7, (50, 34, 26))
+        else:
+            cv.rect(1, 3, 16, 6, WOOD_L)
+            cv.rect(8, 7, 9, 9, (240, 210, 110))
+        cv.outline()
+        save(cv, "chest_open" if opened else "chest")
+    # bookshelf 18x28 (full / searched)
+    r = random.Random(5)
+    for empty in (False, True):
+        cv = Canvas(18, 28)
+        cv.rect(1, 1, 16, 26, WOOD_D)
+        cv.rect(2, 2, 15, 25, (70, 46, 32))
+        for sy in (8, 15, 22):
+            cv.rect(2, sy, 15, sy + 1, WOOD)
+        for sy in (3, 10, 17):
+            x = 3
+            while x < 14:
+                if empty and r.random() < 0.65:
+                    x += 2
+                    continue
+                c = r.choice([(200, 60, 60), (60, 110, 190), (80, 160, 90), (220, 180, 60), (150, 90, 170)])
+                hgt = r.randint(3, 4)
+                cv.rect(x, sy + 4 - hgt + 1, x + 1, sy + 4, c)
+                x += 2
+        cv.outline()
+        save(cv, "shelf_empty" if empty else "shelf")
+    # fireplace 26x28
+    cv = Canvas(26, 28)
+    stone, stone_d = (150, 146, 150), (112, 108, 114)
+    cv.rect(1, 3, 24, 26, stone)
+    for y in range(5, 26, 4):
+        cv.rect(1, y, 24, y, stone_d)
+    cv.rect(0, 1, 25, 4, WOOD)
+    cv.rect(0, 1, 25, 1, WOOD_L)
+    cv.rect(6, 12, 19, 26, (40, 26, 22))
+    for i, (fx, fh) in enumerate(((9, 7), (12, 9), (15, 6))):
+        for y in range(26 - fh, 26):
+            t = (y - (26 - fh)) / fh
+            c = (255, 230, 120) if t > 0.6 else ((250, 160, 50) if t > 0.3 else (240, 90, 40))
+            cv.rect(fx, y, fx + 1, y, c)
+    cv.rect(7, 24, 18, 25, BARK)
+    cv.outline()
+    save(cv, "fireplace")
+    # plant 12x18
+    cv = Canvas(12, 18)
+    cv.rect(3, 12, 8, 16, (180, 90, 60))
+    cv.rect(3, 12, 8, 12, (210, 120, 80))
+    blob(cv, [(6, 7, 4), (3, 9, 3), (9, 9, 3)], TREE, TREE_D, TREE_L, 3)
+    cv.outline()
+    save(cv, "plant")
+    # rug 48x28
+    cv = Canvas(48, 28)
+    for y in range(28):
+        for x in range(48):
+            edge = x < 3 or y < 3 or x > 44 or y > 24
+            c = (170, 60, 60) if not edge else (220, 190, 110)
+            if not edge and (x + y) % 8 == 0:
+                c = (200, 90, 80)
+            cv.px(x, y, c, 235)
+    save(cv, "rug")
+    # door / exit mat 20x8
+    cv = Canvas(20, 8)
+    cv.rect(0, 0, 19, 7, (60, 40, 30))
+    cv.rect(2, 2, 17, 7, (150, 120, 70))
+    for x in range(3, 17, 2):
+        cv.px(x, 4, (120, 92, 52))
+    save(cv, "exit")
+    # sparkle that marks something you can search
+    cv = Canvas(7, 7)
+    for (x, y) in ((3, 0), (3, 1), (3, 5), (3, 6), (0, 3), (1, 3), (5, 3), (6, 3)):
+        cv.px(x, y, (255, 240, 140))
+    cv.rect(2, 2, 4, 4, (255, 255, 220))
+    save(cv, "sparkle")
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     character_sheet("player", PLAYER)
@@ -1621,6 +1901,7 @@ def main():
     for name, cfg in VILLAGERS_FOR_MENU.items():
         character_sheet(name, cfg)
     make_tiles()
+    season_tiles()
     make_round_tree(11).img.save(os.path.join(OUT, "tree_round.png"))
     make_round_tree(23).img.save(os.path.join(OUT, "tree_round2.png"))
     make_fruit_tree(31).img.save(os.path.join(OUT, "tree_fruit.png"))
@@ -1657,6 +1938,8 @@ def main():
     make_iron_barricade().img.save(os.path.join(OUT, "barricade_iron.png"))
     make_gate().img.save(os.path.join(OUT, "gate.png"))
     make_slime()
+    season_props()
+    make_interior()
     make_items()
     make_fx()
     make_ui()

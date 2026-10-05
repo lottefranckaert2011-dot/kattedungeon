@@ -41,12 +41,14 @@ func setup(w, t: String, night: int) -> void:
 	world = w
 	type = t
 	var info: Dictionary = Res.ZOMBIE_TYPES[t]
-	var scale_hp := 1.0 + 0.1 * (night - 1)
+	# Every night they get tougher: more health, harder hits.
+	var scale_hp := 1.0 + 0.13 * (night - 1)
+	var scale_dmg := 1.0 + 0.07 * (night - 1)
 	max_hp = info["hp"] * scale_hp
 	hp = max_hp
 	speed = info["speed"] * randf_range(0.9, 1.12) * (1.0 + 0.02 * mini(night, 10))
-	damage = info["damage"]
-	struct_damage = info["struct_damage"]
+	damage = info["damage"] * scale_dmg
+	struct_damage = info["struct_damage"] * scale_dmg
 	score = info["score"]
 	collision_layer = 4
 	collision_mask = 1 | 8   # world + gates (gates only stop zombies)
@@ -192,6 +194,10 @@ func _physics_process(delta: float) -> void:
 
 
 func _pick_target():
+	# Player (and team) hiding in a house: go for the front door.
+	if world.inside != null:
+		var door = world.inside.door
+		return door if door and door.alive else null
 	var best = world.player
 	var bd := INF
 	if best and best.alive:
@@ -284,8 +290,13 @@ func _explode() -> void:
 		var ds := st.global_position.distance_to(global_position)
 		if ds < EXPLODE_RADIUS:
 			st.damage(struct_damage * (1.0 - ds / EXPLODE_RADIUS * 0.5))
-	var people: Array = [world.player]
-	people.append_array(world.allies)
+	var people: Array = []
+	if world.inside != null:
+		if world.inside.door:
+			people.append(world.inside.door)
+	else:
+		people.append(world.player)
+		people.append_array(world.allies)
 	for t in people:
 		if t == null or not t.alive:
 			continue

@@ -32,6 +32,9 @@ var rescued_kinds: Array = []
 var weather: Weather
 var force_weather := ""            # for tests: "rain" / "fog" / "clear"
 var _seen_types := {}
+var night_len := 90.0
+var _heal_t := 0.0
+var _fading := false
 
 var is_night := false
 var day_num := 1
@@ -335,6 +338,7 @@ func _process(delta: float) -> void:
 	else:
 		_day_process(delta)
 	_update_lighting()
+	_update_inside(delta)
 	_update_build_ghost()
 	_update_prompt()
 	_update_pointer()
@@ -496,14 +500,15 @@ func _start_night() -> void:
 	world.is_night = true
 	night_num += 1
 	phase_time = 0.0
-	wave_total = 6 + night_num * 4
+	wave_total = 6 + night_num * 5
+	night_len = minf(80.0 + night_num * 6.0, 150.0)
 	wave_spawned = 0
 	spawn_timer = 2.0
 	Audio.play("bell", 0.0, 0.0)
 	Audio.play_music("night" if night_num % 2 == 1 else "night2")
 	var w := _pick_weather()
 	weather.set_mode(w)
-	var msg := Lang.t("night_comes")
+	var msg := Lang.t("night_comes") + "\n" + Lang.t("night_harder") % [night_num, wave_total]
 	if w != "clear":
 		msg += "\n" + Lang.t("weather_" + w)
 	hud.show_message(msg, 3.5, Color(1.0, 0.5, 0.45))
@@ -514,7 +519,7 @@ func _night_process(delta: float) -> void:
 	spawn_timer -= delta
 	var max_alive := mini(30 + night_num * 2, 50)
 	if wave_spawned < wave_total and spawn_timer <= 0.0 and _alive_zombies() < max_alive:
-		spawn_timer = maxf(0.35, 1.7 - night_num * 0.12)
+		spawn_timer = maxf(0.3, minf(1.7 - night_num * 0.12, night_len * 0.55 / wave_total))
 		var group := mini(randi_range(1, 2 + night_num / 3), wave_total - wave_spawned)
 		var cell: Vector2i = world.spawn_cells.pick_random()
 		for i in group:
@@ -522,6 +527,30 @@ func _night_process(delta: float) -> void:
 			wave_spawned += 1
 	if wave_spawned >= wave_total and _alive_zombies() == 0:
 		_end_night()
+	elif phase_time >= night_len:
+		_sunrise_burn()
+		_end_night()
+
+
+## The sun comes up: zombies still walking around burn away (no points for those).
+func _sunrise_burn() -> void:
+	var burnt := 0
+	for z in world.zombies.duplicate():
+		if z.dead:
+			continue
+		burnt += 1
+		Fx.burst(world, z.global_position + Vector2(0, -8), Color(1.0, 0.6, 0.2), 8, 40.0)
+		z.dead = true
+		z.collision_layer = 0
+		z.collision_mask = 0
+		world.zombies.erase(z)
+		var tw: Tween = z.create_tween()
+		tw.tween_property(z, "modulate", Color(1.0, 0.4, 0.1, 0.0), 0.8)
+		tw.tween_callback(z.queue_free)
+	wave_spawned = wave_total
+	if burnt > 0:
+		Audio.play("break", -6.0, 0.1)
+		hud.show_message(Lang.t("sunrise"), 3.0, Color(1.0, 0.8, 0.4))
 
 
 func _pick_weather() -> String:
@@ -623,26 +652,33 @@ func _update_lighting() -> void:
 		elif phase_time < 3.0 and day_num > 1:
 			c = NIGHT_COLOR.lerp(DAY_COLOR, phase_time / 3.0)
 			light = 1.0 - phase_time / 3.0
+	if world.inside != null:
+		c = Color(1.0, 0.95, 0.88) if not is_night else Color(0.86, 0.76, 0.64)
+		canvas_mod.color = c
+		player.light.energy = 0.0
+		return
 	canvas_mod.color = c * area_tint
 	player.light.energy = light * 1.1
 
 
 func _update_phase_ui() -> void:
+	hud.set_danger(night_num if is_night else 0)
 	if is_night:
 		var left := wave_total - wave_spawned + _alive_zombies()
-		hud.set_phase(true, night_num, "%s: %d" % [Lang.t("zombies_left"), left], float(left) / maxf(1.0, wave_total))
+		var tl := maxf(0.0, night_len - phase_time)
+		hud.set_phase(true, night_num, "%d:%02d  Z:%d" % [int(tl) / 60, int(tl) % 60, left], tl / night_len)
 		hud.night_btn.visible = false
 	else:
 		var left := maxf(0.0, phase_len - phase_time)
 		hud.set_phase(false, day_num, "%d:%02d" % [int(left) / 60, int(left) % 60], left / phase_len)
-		hud.night_btn.visible = left > DUSK
+		hud.night_btn.visible = left > DUSK and world.inside == null
 		hud.night_btn.text = "N: " + Lang.t("night") + " >>"
 
 
 # ------------------------------------------------------------------ building
 
 func _toggle_build(kind: String) -> void:
-	if state != State.PLAY:
+	if state != State.PLAY or world.inside != null:
 		return
 	build_kind = "" if build_kind == kind else kind
 	hud.set_selected(build_kind, player)
@@ -713,6 +749,11 @@ func _nearest_interactable():
 	var best = null
 	var bd := 22.0
 	var p := player.global_position
+	if world.inside != null:
+		var room: Interior = world.get_interior(world.inside)
+		if p.distance_to(room.exit_pos) < 24.0:
+			return room
+		return room.nearest_container(p, 22.0)
 	for sv in world.waiting:
 		var ds: float = sv.global_position.distance_to(p)
 		if ds < 26.0 and allies.size() < Res.MAX_ALLIES:
@@ -722,6 +763,11 @@ func _nearest_interactable():
 			var dv: float = e.interact_point().distance_to(p)
 			if dv < 30.0 and dv < bd + 8.0:
 				bd = dv
+				best = e
+		elif e is Prop and e.def.get("enter", false):
+			var de: float = e.interact_point().distance_to(p)
+			if de < 30.0 and de < bd + 8.0:
+				bd = de
 				best = e
 		elif e is Prop and e.can_search():
 			var d: float = e.interact_point().distance_to(p)
@@ -745,7 +791,15 @@ func _nearest_interactable():
 func _update_prompt() -> void:
 	var it = _nearest_interactable()
 	var txt := ""
-	if it is Survivor:
+	if it is Interior:
+		txt = Lang.t("go_out")
+	elif it is Furniture:
+		txt = Lang.t("search")
+	elif it is Prop and it.def.get("home", false):
+		txt = Lang.t("enter_home")
+	elif it is Prop and it.def.get("enter", false):
+		txt = Lang.t("enter_house")
+	elif it is Survivor:
 		txt = "%s (%s - %s)" % [Lang.t("rescue"), it.display_name, it.role_text()]
 	elif it is Prop and it.def.get("shop", false):
 		txt = Lang.t("shop")
@@ -767,9 +821,15 @@ func _update_prompt() -> void:
 
 func _interact() -> void:
 	var it = _nearest_interactable()
-	if it == null:
+	if it == null or _fading:
 		return
-	if it is Survivor:
+	if it is Interior:
+		_exit_house()
+	elif it is Furniture:
+		_search_furniture(it)
+	elif it is Prop and it.def.get("enter", false):
+		_enter_house(it)
+	elif it is Survivor:
 		_rescue(it)
 	elif it is Prop and it.def.get("shop", false):
 		_open_shop()
@@ -914,6 +974,8 @@ func _use_van(v: Prop) -> void:
 
 func _travel() -> void:
 	state = State.TRAVEL
+	world.inside = null
+	weather.visible = true
 	weather.set_mode("clear")
 	if build_kind != "":
 		_toggle_build(build_kind)
@@ -984,6 +1046,9 @@ func _travel() -> void:
 
 ## Arrow at the screen edge pointing to the nearest survivor waiting for help.
 func _update_pointer() -> void:
+	if world.inside != null:
+		hud.set_pointer(false, Vector2.ZERO, Vector2.ZERO)
+		return
 	var best = null
 	var bd := INF
 	for sv in world.waiting:
@@ -1005,3 +1070,136 @@ func _update_pointer() -> void:
 	var half := vp / 2.0 - Vector2(margin, margin)
 	var t := minf(half.x / maxf(absf(dir.x), 0.001), half.y / maxf(absf(dir.y), 0.001))
 	hud.set_pointer(true, vp / 2.0 + dir * t, dir)
+
+
+# ------------------------------------------------------------------ houses
+
+func _fade(mid: Callable) -> void:
+	_fading = true
+	var layer := CanvasLayer.new()
+	layer.layer = 15
+	add_child(layer)
+	var rect := ColorRect.new()
+	rect.color = Color(0.04, 0.03, 0.05, 0.0)
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(rect)
+	var tw := create_tween()
+	tw.tween_property(rect, "color:a", 1.0, 0.18)
+	tw.tween_callback(mid)
+	tw.tween_property(rect, "color:a", 0.0, 0.22)
+	tw.tween_callback(func():
+		layer.queue_free()
+		_fading = false)
+
+
+func _enter_house(house: Prop) -> void:
+	if house.door and house.door.hp <= 0.0:
+		hud.show_message(Lang.t("door_broken"), 1.6, Color(1, 0.6, 0.5))
+		Audio.play("error", -6.0)
+		return
+	if build_kind != "":
+		_toggle_build(build_kind)
+	Audio.play("search_house", -4.0)
+	var room: Interior = world.get_interior(house)
+	_fade(func():
+		world.inside = house
+		player.position = room.spawn_pos
+		player.velocity = Vector2.ZERO
+		for a in allies:
+			a.place_near(room.spawn_pos + Vector2(0, -24))
+		_camera_to_room(room)
+		weather.visible = false
+		if house.def.get("home", false):
+			hud.show_message(Lang.t("home_safe"), 2.5, Color(0.7, 1.0, 0.6))
+		elif not room.containers.is_empty():
+			hud.show_message(Lang.t("house_search_hint"), 2.0, Color(0.85, 0.95, 1.0)))
+
+
+func _exit_house(kicked := false) -> void:
+	var house = world.inside
+	if house == null:
+		return
+	var out: Vector2 = house.interact_point() + Vector2(0, 14)
+	var go_out := func():
+		world.inside = null
+		player.position = out
+		player.velocity = Vector2.ZERO
+		for a in allies:
+			a.place_near(out)
+		_camera_to_map()
+		weather.visible = true
+	if kicked:
+		go_out.call()
+		hud.show_message(Lang.t("door_broken_out"), 3.0, Color(1, 0.5, 0.45))
+		shake(4.0)
+	else:
+		Audio.play("search_house", -6.0, 0.1, null, 0.9)
+		_fade(go_out)
+
+
+func _camera_to_room(room: Interior) -> void:
+	var vp := get_viewport().get_visible_rect().size
+	camera.limit_left = int(room.center.x - vp.x / 2.0)
+	camera.limit_right = int(room.center.x + vp.x / 2.0)
+	camera.limit_top = int(room.center.y - vp.y / 2.0)
+	camera.limit_bottom = int(room.center.y + vp.y / 2.0)
+	camera.position = room.center
+	camera.reset_smoothing()
+
+
+func _camera_to_map() -> void:
+	camera.limit_left = 0
+	camera.limit_top = 0
+	camera.limit_right = int(world.map_size().x)
+	camera.limit_bottom = int(world.map_size().y)
+	camera.position = player.position
+	camera.reset_smoothing()
+
+
+func _update_inside(delta: float) -> void:
+	var house = world.inside
+	if house == null:
+		hud.set_door(false, 0.0)
+		return
+	var room: Interior = world.get_interior(house)
+	if room.at_exit(player.global_position):
+		_exit_house()
+		return
+	var door: HouseDoor = house.door
+	hud.set_door(is_night or door.hp < door.max_hp, door.hp / door.max_hp)
+	if door.hp <= 0.0:
+		_exit_house(true)
+		return
+	if door.hp < door.max_hp and is_night and door.should_warn():
+		hud.show_message(Lang.t("door_hit"), 2.0, Color(1, 0.6, 0.5))
+	# Home sweet home: everybody rests and heals.
+	if house.def.get("home", false):
+		_heal_t -= delta
+		if _heal_t <= 0.0:
+			_heal_t = 1.0
+			player.heal(3.0, false)
+			for a in allies:
+				a.heal(3.0, false)
+
+
+func _search_furniture(f: Furniture) -> void:
+	f.set_searched(true)
+	Audio.play("search_crate", -3.0)
+	var loot := Interior.roll_loot(day_num)
+	var at := f.global_position + Vector2(0, 6)
+	for k in loot:
+		if k == "weapon":
+			var options: Array = []
+			for item in Res.SHOP:
+				if Res.WEAPONS.has(item["id"]) and not item["id"] in player.owned:
+					options.append(item["id"])
+			if options.is_empty():
+				Pickup.spawn(world, "coins", 15, at)
+				continue
+			var id: String = options.pick_random()
+			player.give_weapon(id)
+			Audio.play("highscore", -4.0)
+			hud.show_message(Lang.t("found_weapon") % Lang.t("w_" + id), 2.5, Color(1.0, 0.9, 0.4))
+		else:
+			Pickup.spawn(world, k, loot[k], at)

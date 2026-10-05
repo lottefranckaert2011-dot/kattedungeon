@@ -113,12 +113,39 @@ const SHOP := [
 ]
 
 ## Areas you can drive to with the repaired van. After the last one they repeat (harder).
+## Every area has its own season and feel; the layout (roads, houses, pond...) is random each time.
 const AREAS := [
-	{"nl": "Het Dorp", "en": "The Village", "tint": Color(1, 1, 1), "houses": 7, "trees": 1.0, "rocks": 1.0, "pond": true, "farm": true},
-	{"nl": "Het Donkere Bos", "en": "The Dark Forest", "tint": Color(0.8, 0.93, 0.84), "houses": 3, "trees": 2.2, "rocks": 0.8, "pond": true, "farm": false},
-	{"nl": "De Oude Boerderij", "en": "The Old Farm", "tint": Color(1.0, 0.95, 0.82), "houses": 4, "trees": 0.7, "rocks": 0.7, "pond": false, "farm": true},
-	{"nl": "De Rotsvallei", "en": "Rocky Valley", "tint": Color(0.95, 0.9, 0.86), "houses": 4, "trees": 0.6, "rocks": 2.6, "pond": true, "farm": false},
+	{"nl": "Het Dorp", "en": "The Village", "biome": "summer", "tint": Color(1, 1, 1), "houses": 6, "trees": 1.0, "rocks": 1.0, "pond": true, "farm": true},
+	{"nl": "Het Donkere Bos", "en": "The Dark Forest", "biome": "summer", "tint": Color(0.8, 0.93, 0.84), "houses": 3, "trees": 2.2, "rocks": 0.8, "pond": true, "farm": false},
+	{"nl": "Het Herfstdorp", "en": "Autumn Village", "biome": "autumn", "tint": Color(1.0, 0.96, 0.9), "houses": 5, "trees": 1.3, "rocks": 0.8, "pond": true, "farm": true},
+	{"nl": "Het Winterdorp", "en": "Winter Village", "biome": "winter", "tint": Color(0.92, 0.96, 1.0), "houses": 5, "trees": 1.0, "rocks": 1.0, "pond": true, "farm": false},
+	{"nl": "De Oude Boerderij", "en": "The Old Farm", "biome": "autumn", "tint": Color(1.0, 0.95, 0.82), "houses": 3, "trees": 0.7, "rocks": 0.7, "pond": false, "farm": true},
+	{"nl": "De Rotsvallei", "en": "Rocky Valley", "biome": "summer", "tint": Color(0.95, 0.9, 0.86), "houses": 4, "trees": 0.6, "rocks": 2.6, "pond": true, "farm": false},
 ]
+
+static var _tex_cache := {}
+
+## Loads (and caches) a texture; returns null when it does not exist.
+static func tex(path: String) -> Texture2D:
+	if not _tex_cache.has(path):
+		_tex_cache[path] = load(path) if ResourceLoader.exists(path) else null
+	return _tex_cache[path]
+
+static func season_tiles(biome: String) -> Texture2D:
+	return TILES if biome == "summer" else tex("res://assets/sprites/tiles_%s.png" % biome)
+
+static func season_edges(biome: String) -> Texture2D:
+	return EDGES if biome == "summer" else tex("res://assets/sprites/edges_%s.png" % biome)
+
+## Prop texture for a season: e.g. tree_round_autumn, house_red_winter (falls back to the summer one).
+static func prop_tex(kind: String, biome: String) -> Texture2D:
+	if biome != "summer":
+		var t := tex("res://assets/sprites/%s_%s.png" % [kind, biome])
+		if t:
+			return t
+	if PROPS.has(kind):
+		return PROPS[kind]
+	return tex("res://assets/sprites/%s.png" % kind)
 
 static func area_info(i: int) -> Dictionary:
 	return AREAS[i % AREAS.size()]
