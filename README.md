@@ -31,7 +31,8 @@ Zombies vallen ook je teamleden aan. Raakt iemand gewond, dan ligt die even neer
 | Lopen | WASD / ZQSD / pijltjes | joystick links |
 | Bijl (zombies, bomen, rotsen, kratten) | linkermuisknop / spatie | bijl-knop |
 | Schieten (kost kogels) | rechtermuisknop / F | pistool-knop (mikt automatisch) |
-| Bouwen | 1-5 kiezen, klik om te plaatsen, rechts klikken stopt | tik een gebouw onderaan, dan **BOUW** |
+| Bouwen | 1-6 kiezen, klik om te plaatsen, rechts klikken stopt | tik een gebouw onderaan, dan **BOUW** |
+| Houten barricade ijzer maken | E (naast de barricade) | E-knop |
 | Huis / krat doorzoeken, winkel, bus maken / wegrijden, geschut bijvullen | E | E-knop |
 | Ander geweer pakken | Tab / muiswiel | `<>`-knop |
 | Eten (+30 HP) | R | appel-knop |
@@ -42,11 +43,12 @@ Zombies vallen ook je teamleden aan. Raakt iemand gewond, dan ligt die even neer
 
 | # | Gebouw | Kost | Wat doet het? |
 |---|---|---|---|
-| 1 | Barricade | 4 hout | blokkeert zombies (80 HP) |
-| 2 | Stenen muur | 4 steen + 1 hout | heel sterke muur (220 HP) |
-| 3 | Spijkerval | 2 hout + 2 schroot | zombies lopen erover en raken gewond |
-| 4 | Geschut | 5 schroot + 3 hout + 2 steen | schiet automatisch (40 kogels, bijvullen met E) |
-| 5 | Kampvuur | 5 hout + 2 steen | licht in de nacht + geneest je als je ernaast staat |
+| 1 | Barricade | 4 hout | blokkeert zombies (80 HP). Met **E** maak je er een **ijzeren barricade** van (4 schroot + 1 steen, 240 HP) |
+| 2 | Poort | 6 hout + 2 schroot | jij en je team lopen erdoor, zombies niet; gaat vanzelf open |
+| 3 | Stenen muur | 4 steen + 1 hout | heel sterke muur (220 HP) |
+| 4 | Spijkerval | 2 hout + 2 schroot | zombies lopen erover en raken gewond |
+| 5 | Geschut | 5 schroot + 3 hout + 2 steen | schiet automatisch (40 kogels, bijvullen met E) |
+| 6 | Kampvuur | 5 hout + 2 steen | licht in de nacht + geneest je als je ernaast staat |
 
 ### Wapenwinkel
 
@@ -82,6 +84,16 @@ Alle zombies zijn dorpelingen in dezelfde chibi-stijl als de speler: de boer met
 het meisje met de roze jurk, de jongen met de pet en de arbeider. Vanaf nacht 2 komen er
 **rennende** zombies (rode pet), vanaf nacht 3 de grote **bruut** in tuinbroek, die barricades
 heel snel sloopt. Elke nacht komen er meer.
+
+Vanaf nacht 2 komen er ook **zombiehonden** (heel snel), vanaf nacht 3 **spuugzombies** (gooien groen slijm
+over je muren; slijm maakt je trager) en **dikke zombies** (ontploffen bij je barricades en blazen ze op;
+ook als je ze doodt, dus hou afstand!).
+
+### Weer en minikaart
+
+Vanaf nacht 2 kan het **regenen** (met bliksem) of **mistig** zijn: dan zie je alleen wat dicht bij je is.
+Rechtsboven staat een **minikaart**: wit = jij, groen = je team, geel knipperend = iemand die HELP! roept,
+paars = de winkel, blauw = de bus, rood = zombies.
 
 **Score** = 10–35 punten per zombie + 250 per overleefde nacht + 500 per nieuw gebied + 150 per geredde overlevende. Je record wordt bewaard.
 

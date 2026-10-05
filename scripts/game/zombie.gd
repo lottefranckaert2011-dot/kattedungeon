@@ -30,6 +30,11 @@ var _flash := 0.0
 var _groan := 0.0
 var _stuck := 0.0
 var _target_struct: Structure = null
+var _fuse := -1.0           # bloater: seconds until it explodes
+var _exploded := false
+
+const EXPLODE_RADIUS := 44.0
+const SPIT_RANGE := 100.0
 
 
 func setup(w, t: String, night: int) -> void:
@@ -44,18 +49,23 @@ func setup(w, t: String, night: int) -> void:
 	struct_damage = info["struct_damage"]
 	score = info["score"]
 	collision_layer = 4
-	collision_mask = 1
+	collision_mask = 1 | 8   # world + gates (gates only stop zombies)
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 
-	var skin: String = "zombie_runner" if t == "runner" else ("zombie_brute" if t == "brute" else Res.WALKER_SKINS.pick_random())
+	var skin: String = Res.ZOMBIE_SKIN.get(t, "")
+	if skin == "":
+		skin = Res.WALKER_SKINS.pick_random()
 	var tex: Texture2D = Res.ZOMBIE_TEX[skin]
 	_frame_w = tex.get_width() / 6
 	var sh := Sprite2D.new()
 	sh.texture = Res.SHADOW
 	sh.z_index = -1
-	if t == "brute":
-		sh.scale = Vector2(1.4, 1.3)
-		radius = 8.0
+	if t == "brute" or t == "bloater":
+		sh.scale = Vector2(1.5, 1.3)
+		radius = 8.0 if t == "brute" else 9.0
+	elif t == "dog":
+		sh.scale = Vector2(1.1, 0.9)
+		radius = 5.0
 	add_child(sh)
 	sprite = Sprite2D.new()
 	sprite.texture = tex
@@ -66,7 +76,7 @@ func setup(w, t: String, night: int) -> void:
 
 	var cs := CollisionShape2D.new()
 	var shape := CircleShape2D.new()
-	shape.radius = 4.0 if t != "brute" else 5.0
+	shape.radius = 5.0 if t == "brute" or t == "bloater" else 4.0
 	cs.shape = shape
 	cs.position = Vector2(0, -2)
 	add_child(cs)
@@ -85,9 +95,23 @@ func _physics_process(delta: float) -> void:
 		_flash -= delta
 		sprite.modulate = Color(3.0, 3.0, 3.0) if _flash > 0.0 else Color.WHITE
 
+	if _fuse >= 0.0:
+		_fuse -= delta
+		sprite.modulate = Color(2.0, 3.0, 1.2) if int(_fuse * 14.0) % 2 == 0 else Color.WHITE
+		sprite.scale = Vector2.ONE * (1.0 + (0.8 - _fuse) * 0.3)
+		velocity = _knock
+		move_and_slide()
+		_knock = _knock.move_toward(Vector2.ZERO, 500.0 * delta)
+		if _fuse <= 0.0:
+			_explode()
+		return
+
 	if _groan <= 0.0:
 		_groan = randf_range(4.0, 10.0)
-		Audio.play("groan", -10.0, 0.15, global_position)
+		if type == "dog":
+			Audio.play("groan", -12.0, 0.1, global_position, 1.7)
+		else:
+			Audio.play("groan", -10.0, 0.15, global_position)
 
 	# Attack whoever is closest: the player or one of the survivors helping them.
 	var player = _pick_target()
@@ -96,13 +120,24 @@ func _physics_process(delta: float) -> void:
 	if player and player.alive:
 		var to_p: Vector2 = player.global_position - global_position
 		var dist := to_p.length()
-		if dist < reach:
+		if dist < reach and type != "spitter":
 			_face(to_p)
-			if _attack_cd <= 0.0:
-				_attack_cd = 1.0 if type != "runner" else 0.8
+			if type == "bloater":
+				_start_fuse()
+			elif _attack_cd <= 0.0:
+				_attack_cd = {"runner": 0.8, "dog": 0.6}.get(type, 1.0)
 				_attack_anim = 0.35
 				player.take_damage(damage, to_p.normalized())
-				Audio.play("zattack", -4.0, 0.12, global_position)
+				Audio.play("zattack", -4.0, 0.12, global_position, 1.5 if type == "dog" else 1.0)
+		elif type == "spitter" and dist < SPIT_RANGE:
+			# Keep some distance and lob slime (it flies over barricades!).
+			_face(to_p)
+			desired = -to_p.normalized() if dist < 48.0 else Vector2.ZERO
+			if _attack_cd <= 0.0:
+				_attack_cd = randf_range(2.2, 2.8)
+				_attack_anim = 0.35
+				Slime.lob(world, global_position + Vector2(0, -14), player.global_position, damage)
+				Audio.play("spit", -4.0, 0.1, global_position)
 		else:
 			if _repath <= 0.0:
 				_repath = randf_range(0.45, 0.75)
@@ -125,7 +160,9 @@ func _physics_process(delta: float) -> void:
 					and global_position.distance_to(_target_struct.global_position) < 18.0 + radius:
 				desired = Vector2.ZERO
 				_face(_target_struct.global_position - global_position)
-				if _attack_cd <= 0.0:
+				if type == "bloater":
+					_start_fuse()
+				elif _attack_cd <= 0.0:
 					_attack_cd = 1.0
 					_attack_anim = 0.35
 					_target_struct.damage(struct_damage)
@@ -217,7 +254,62 @@ func take_damage(amount: float, knock: Vector2, show_blood := true) -> void:
 		_die()
 
 
+func _start_fuse() -> void:
+	if _fuse >= 0.0 or _exploded:
+		return
+	_fuse = 0.8
+	Audio.play("groan", -2.0, 0.05, global_position, 1.5)
+
+
+## The bloater bursts: hurts everything around it, smashes barricades.
+func _explode() -> void:
+	if _exploded:
+		return
+	_exploded = true
+	dead = true
+	collision_layer = 0
+	collision_mask = 0
+	var center := global_position + Vector2(0, -6)
+	Audio.play("boom", 0.0, 0.08, global_position)
+	Fx.burst(world, center, Color(0.5, 0.85, 0.3), 30, 120.0)
+	Fx.burst(world, center, Color(0.9, 0.95, 0.5), 12, 70.0)
+	for i in 3:
+		world.add_splat(global_position + Vector2(randf_range(-14, 14), randf_range(-8, 8)), true)
+	if world.player and world.player.main:
+		world.player.main.shake(5.0)
+	for c in world.structures.keys():
+		var st: Structure = world.structures.get(c)
+		if st == null:
+			continue
+		var ds := st.global_position.distance_to(global_position)
+		if ds < EXPLODE_RADIUS:
+			st.damage(struct_damage * (1.0 - ds / EXPLODE_RADIUS * 0.5))
+	var people: Array = [world.player]
+	people.append_array(world.allies)
+	for t in people:
+		if t == null or not t.alive:
+			continue
+		var dp: float = t.global_position.distance_to(global_position)
+		if dp < EXPLODE_RADIUS:
+			t.take_damage(damage * (1.0 - dp / EXPLODE_RADIUS * 0.5), (t.global_position - global_position).normalized())
+	for z in world.zombies.duplicate():
+		if z == self or z.dead:
+			continue
+		var dz: float = z.global_position.distance_to(global_position)
+		if dz < EXPLODE_RADIUS:
+			z.take_damage.call_deferred(40.0, (z.global_position - global_position).normalized() * 180.0, false)
+	_drop()
+	died.emit(self)
+	sprite.visible = false
+	var tw := create_tween()
+	tw.tween_interval(0.2)
+	tw.tween_callback(queue_free)
+
+
 func _die() -> void:
+	if type == "bloater":
+		_explode()
+		return
 	dead = true
 	collision_layer = 0
 	collision_mask = 0
@@ -237,7 +329,7 @@ func _die() -> void:
 func _drop() -> void:
 	var r := randf()
 	# Coins for the weapon shop.
-	var coins: int = {"walker": randi_range(1, 2), "runner": 3, "brute": 8}[type]
+	var coins: int = {"walker": randi_range(1, 2), "runner": 3, "brute": 8, "dog": 1, "bloater": 4, "spitter": 3}[type]
 	Pickup.spawn(world, "coins", coins, global_position)
 	if type == "brute":
 		Pickup.spawn(world, "scrap", 1, global_position)

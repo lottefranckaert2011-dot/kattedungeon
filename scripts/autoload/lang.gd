@@ -50,8 +50,8 @@ const TEXT := {
 	"refill": ["E: kogels erin", "E: add ammo"],
 	"help_title": ["HOE SPEEL JE?", "HOW TO PLAY"],
 	"help_text": [
-		"OVERDAG: hak bomen (hout), sla rotsen (steen) en doorzoek huizen en kratten (schroot, kogels, eten).\n'S NACHTS: zombies komen over de wegen het dorp in. Bouw barricades en overleef!\n\nWASD / ZQSD / pijltjes: lopen\nLinks klikken / spatie: bijl\nRechts klikken / F: schieten\n1-5: bouwen kiezen, klik om te plaatsen\nE: doorzoeken / winkel / auto   R: eten\nTab / muiswiel: ander geweer   N: nacht starten\n\nVersla zombies voor MUNTEN en koop wapens. Red mensen die HELP! roepen: ze helpen je. Maak de auto en rijd naar een nieuw gebied!",
-		"DAY: chop trees (wood), break rocks (stone) and search houses and crates (scrap, ammo, food).\nNIGHT: zombies walk into the village along the roads. Build barricades and survive!\n\nWASD / arrows: move\nLeft click / space: axe\nRight click / F: shoot\n1-5: pick a building, click to place\nE: search / shop / car   R: eat\nTab / mouse wheel: switch gun   N: start night\n\nDefeat zombies for COINS and buy weapons. Rescue people shouting HELP!: they help you. Fix the car and drive to a new area!"
+		"OVERDAG: hak bomen (hout), sla rotsen (steen) en doorzoek huizen en kratten (schroot, kogels, eten).\n'S NACHTS: zombies komen over de wegen het dorp in. Bouw barricades en overleef!\n\nWASD / ZQSD / pijltjes: lopen\nLinks klikken / spatie: bijl\nRechts klikken / F: schieten\n1-6: bouwen kiezen, klik om te plaatsen\nE: doorzoeken / winkel / auto   R: eten\nTab / muiswiel: ander geweer   N: nacht starten\n\nVersla zombies voor MUNTEN en koop wapens. Red mensen die HELP! roepen: ze helpen je. Maak de auto en rijd naar een nieuw gebied!",
+		"DAY: chop trees (wood), break rocks (stone) and search houses and crates (scrap, ammo, food).\nNIGHT: zombies walk into the village along the roads. Build barricades and survive!\n\nWASD / arrows: move\nLeft click / space: axe\nRight click / F: shoot\n1-6: pick a building, click to place\nE: search / shop / car   R: eat\nTab / mouse wheel: switch gun   N: start night\n\nDefeat zombies for COINS and buy weapons. Rescue people shouting HELP!: they help you. Fix the car and drive to a new area!"
 	],
 	"back": ["TERUG", "BACK"],
 	"build_mode": ["Klik om te bouwen - rechts klikken stopt", "Click to build - right click cancels"],
@@ -105,6 +105,15 @@ const TEXT := {
 	"role_builder": ["bouwer", "builder"],
 	"chopped": ["heeft hout gehakt", "chopped some wood"],
 	"rescued": ["Mensen gered", "People rescued"],
+	"b_gate": ["Poort", "Gate"],
+	"upgrade_iron": ["E: ijzer maken", "E: make it iron"],
+	"iron_done": ["IJzer!", "Iron!"],
+	"weather_rain": ["Het regent... je ziet minder ver!", "It's raining... you can't see far!"],
+	"weather_fog": ["Dichte mist... pas goed op!", "Thick fog... be careful!"],
+	"intro_dog": ["Pas op: zombiehonden! Ze zijn heel snel!", "Watch out: zombie dogs! They are very fast!"],
+	"intro_bloater": ["Dikke zombie! Hij ontploft - hou hem weg van je barricades!", "Bloater! It explodes - keep it away from your barricades!"],
+	"intro_spitter": ["Spuugzombie! Hij gooit slijm over je muren!", "Spitter! It throws slime over your walls!"],
+	"intro_brute": ["Een grote bruut! Hij slaat barricades snel kapot!", "A big brute! It smashes barricades fast!"],
 }
 
 func _ready() -> void:

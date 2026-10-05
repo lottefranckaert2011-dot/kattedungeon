@@ -13,6 +13,7 @@ var melee_icon: TextureRect
 var gun_icon: TextureRect
 var area_label: Label
 var allies_box: VBoxContainer
+var minimap: Minimap
 var pointer: Control
 var _ally_rows := []      # [survivor, fill ColorRect, row]
 var _ptr_on := false
@@ -179,6 +180,9 @@ func _build_top_right() -> void:
 	score_label = UITheme.label("", 16, Color(1.0, 0.9, 0.5))
 	score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	score_label.position = Vector2(-156, 24)
+	minimap = Minimap.new()
+	minimap.position = Vector2(-(World.W + 6), 42)
+	holder.add_child(minimap)
 	score_label.size = Vector2(150, 16)
 	holder.add_child(score_label)
 	var pause := UITheme.button("II", 22)
@@ -221,14 +225,8 @@ func _build_bar() -> void:
 		b.mouse_entered.connect(func(): _show_tip(kind))
 		b.mouse_exited.connect(func(): _show_tip(""))
 		holder.add_child(b)
-		var tex: Texture2D = Res.STRUCT_TEX[kind]
 		var icon := TextureRect.new()
-		if kind == "campfire":
-			var at := AtlasTexture.new()
-			at.atlas = tex
-			at.region = Rect2(0, 0, 16, 16)
-			tex = at
-		icon.texture = tex
+		icon.texture = Res.struct_icon(kind)
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

@@ -33,6 +33,9 @@ func setup(w, k: String, c: Vector2i) -> void:
 	hp = max_hp
 	blocks = info["blocks"]
 	collision_layer = 1 if blocks else 0
+	if info.get("gate", false):
+		# Only zombies collide with gates (layer 8); the player and survivors walk through.
+		collision_layer = 8
 	collision_mask = 0
 	position = world.cell_center(c) + Vector2(0, 6)
 	if not blocks:
@@ -49,8 +52,7 @@ func setup(w, k: String, c: Vector2i) -> void:
 	sprite.centered = false
 	var tex_w := 16
 	var tex_h: int = sprite.texture.get_height()
-	if k == "campfire":
-		sprite.hframes = 3
+	sprite.hframes = Res.STRUCT_FRAMES.get(k, 1)
 	sprite.offset = Vector2(-tex_w / 2.0, -tex_h + 2)
 	add_child(sprite)
 	if k == "spikes":
@@ -98,6 +100,8 @@ func _process(delta: float) -> void:
 			_turret(delta)
 		"spikes":
 			_spikes()
+		"gate":
+			_gate()
 		"campfire":
 			sprite.frame = int(_anim * 8.0) % 3
 			light.energy = 1.1 + sin(_anim * 13.0) * 0.08 + sin(_anim * 7.0) * 0.06
@@ -107,6 +111,36 @@ func _process(delta: float) -> void:
 				if p and p.alive and p.global_position.distance_to(global_position) < 40.0:
 					p.heal(FIRE_HEAL, false)
 	queue_redraw()
+
+
+var _gate_open := false
+
+func _gate() -> void:
+	var open := false
+	var people: Array = [world.player]
+	people.append_array(world.allies)
+	for p in people:
+		if p and p.alive and p.global_position.distance_to(global_position) < 20.0:
+			open = true
+	if open != _gate_open:
+		_gate_open = open
+		sprite.frame = 1 if open else 0
+		Audio.play("search_crate", -14.0, 0.1, global_position, 1.3)
+
+
+## Wooden barricade -> iron barricade (stronger, full health).
+func upgrade(new_kind: String) -> void:
+	kind = new_kind
+	var info: Dictionary = Res.BUILD[new_kind]
+	max_hp = info["hp"]
+	hp = max_hp
+	sprite.texture = Res.STRUCT_TEX[new_kind]
+	sprite.hframes = 1
+	sprite.offset = Vector2(-8, -sprite.texture.get_height() + 2)
+	world.astar.set_point_weight_scale(cell, info["weight"])
+	Fx.burst(world, global_position + Vector2(0, -8), Color(0.8, 0.82, 0.9), 12, 50.0)
+	sprite.scale = Vector2(1.3, 0.7)
+	create_tween().tween_property(sprite, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _turret(_delta: float) -> void:

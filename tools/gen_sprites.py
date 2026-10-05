@@ -224,6 +224,21 @@ def draw_character(d, frame, cfg):
         for x in range(x0, x1 + 1):
             if rnd.random() < 0.35:
                 cv.px(x, tb + 1, shirt_s)
+    if cfg.get("belly") and d != 1:
+        bcx = cx - 0.5 if d == 0 else cx + 1.5
+        bcy = tt + 4.5
+        rx, ry = (6.6, 4.6) if d == 0 else (5.2, 4.6)
+        belly, belly_l = (150, 186, 96), (190, 222, 120)
+        for y in range(tt, tb + 2):
+            for x in range(x0 - 2, x1 + 4):
+                if ((x - bcx) / rx) ** 2 + ((y - bcy) / ry) ** 2 <= 1.0:
+                    c = belly
+                    if x < bcx - 1 and y < bcy:
+                        c = belly_l
+                    cv.px(x, y, c)
+        for (px_, py_) in ((-3, -1), (2, 1), (-1, 2), (3, -2)):
+            cv.px(int(bcx) + px_, int(bcy) + py_, (210, 230, 80))
+        cv.px(int(bcx), int(bcy), (90, 120, 60))
 
     # ---------------- arms
     sleeve = shirt_s if not cfg.get("plaid") else darker(shirt, 0.85)
@@ -319,6 +334,18 @@ def draw_character(d, frame, cfg):
         else:
             cv.px(cx + 3, ht + 8, skin_s)
         cv.px(cx - 2, ey + 1, skin_s)  # ear
+
+    if cfg.get("drool") and d != 1:
+        slime, slime_d = (120, 230, 80), (70, 170, 50)
+        if d == 0:
+            cv.rect(cx - 2, ht + 8, cx + 1, ht + 8, slime_d)
+            cv.px(cx - 1, ht + 9, slime)
+            cv.px(cx - 1, ht + 10, slime)
+            cv.px(cx + 1, ht + 9, slime)
+        else:
+            cv.rect(cx + 2, ht + 8, cx + 3, ht + 8, slime_d)
+            cv.px(cx + 3, ht + 9, slime)
+            cv.px(cx + 3, ht + 10, slime)
 
     # hair
     def hair_px(x, y, c=None):
@@ -424,6 +451,10 @@ ZOMBIES = {
                           shirt=(206, 64, 56), pants=(60, 64, 80), eye=Z_EYE_Y, seed=7, scar=True),
     "zombie_brute": dict(zombie=True, big=True, skin=Z_DARK, hair_style="bald", shirt=(190, 60, 54), plaid=True,
                          overalls=(80, 94, 140), pants=(80, 94, 140), eye=Z_EYE, seed=8, scar=True),
+    "zombie_bloater": dict(zombie=True, big=True, skin=(126, 164, 92), hair_style="bald", shirt=(236, 230, 210),
+                           pants=(110, 90, 70), eye=Z_EYE_Y, seed=15, belly=True),
+    "zombie_spitter": dict(zombie=True, skin=(150, 172, 120), hair=(50, 40, 60), hair_style="messy",
+                           shirt=(224, 190, 60), pants=(70, 70, 90), eye=Z_EYE_Y, seed=16, drool=True),
 }
 
 VILLAGERS_FOR_MENU = {
@@ -1427,6 +1458,161 @@ def make_smoke():
     cv.img.save(os.path.join(OUT, "smoke.png"))
 
 
+# ---------------------------------------------------------------- dog, iron, gate, slime
+
+DOG = (112, 124, 98)
+DOG_D = (82, 92, 72)
+DOG_L = (146, 156, 124)
+
+
+def draw_dog(d, frame):
+    cv = Canvas(16, 16)
+    walk = frame % 4
+    attack = frame >= 4
+    eye = Z_EYE
+    if d == 2:
+        lunge = 1 if attack else 0
+        # legs (front pair and back pair alternate)
+        off = [0, 1, 0, -1, 1, 1][frame]
+        for lx, o in ((4, off), (6, -off), (10, -off), (12, off)):
+            cv.rect(lx + o if lx > 8 else lx + o, 11, lx + o, 13, DOG_D if lx in (6, 12) else DOG)
+        # body
+        cv.rect(3, 7, 11, 10, DOG)
+        cv.rect(3, 10, 11, 10, DOG_D)
+        cv.rect(4, 7, 9, 7, DOG_L)
+        cv.px(6, 9, (160, 70, 70))
+        cv.px(8, 9, (160, 70, 70))
+        cv.px(7, 8, (200, 190, 170))
+        # tail
+        cv.px(2, 7, DOG)
+        cv.px(1, 6 - (walk % 2), DOG)
+        # head
+        hx = 10 + lunge
+        cv.rect(hx, 4, hx + 3, 8, DOG)
+        cv.rect(hx + 3, 6, hx + 5, 8, DOG)
+        cv.px(hx, 3, DOG_D)
+        cv.px(hx + 1, 2, DOG_D)
+        cv.px(hx + 2, 5, eye)
+        cv.rect(hx + 3, 8, hx + 5, 8, (70, 30, 40))
+        cv.px(hx + 4, 8, (230, 225, 200))
+        if attack:
+            cv.rect(hx + 3, 9, hx + 5, 9, (70, 30, 40))
+    elif d == 0:
+        off = [0, 1, 0, -1, 0, 0][frame]
+        cv.rect(5, 12 - max(off, 0), 5, 13 - max(off, 0), DOG_D)
+        cv.rect(10, 12 - max(-off, 0), 10, 13 - max(-off, 0), DOG_D)
+        cv.rect(4, 8, 11, 11, DOG)
+        cv.rect(4, 11, 11, 11, DOG_D)
+        hy = 3 + (1 if attack else 0)
+        cv.rect(5, hy, 10, hy + 5, DOG)
+        cv.rect(5, hy, 10, hy, DOG_L)
+        cv.px(5, hy - 1, DOG_D)
+        cv.px(10, hy - 1, DOG_D)
+        cv.px(4, hy - 1, DOG_D)
+        cv.px(11, hy - 1, DOG_D)
+        cv.px(6, hy + 2, eye)
+        cv.px(9, hy + 2, eye)
+        cv.rect(7, hy + 3, 8, hy + 6, DOG_L)
+        cv.rect(7, hy + 6, 8, hy + 6, (70, 30, 40))
+        if attack:
+            cv.px(7, hy + 7, (230, 225, 200))
+            cv.px(8, hy + 7, (70, 30, 40))
+        cv.px(6, 9, (160, 70, 70))
+    else:
+        off = [0, 1, 0, -1, 0, 0][frame]
+        cv.rect(5, 11 + max(off, 0) - 1, 5, 13, DOG_D)
+        cv.rect(10, 11 + max(-off, 0) - 1, 10, 13, DOG_D)
+        cv.rect(4, 5, 11, 11, DOG)
+        cv.rect(4, 5, 5, 11, DOG_L)
+        cv.rect(10, 5, 11, 11, DOG_D)
+        cv.px(7, 7, (160, 70, 70))
+        cv.px(8, 8, (160, 70, 70))
+        cv.rect(6, 2, 9, 4, DOG)
+        cv.px(6, 1, DOG_D)
+        cv.px(9, 1, DOG_D)
+        tx = 7 + [0, 1, 0, -1, 0, 0][frame]
+        cv.rect(tx, 12, tx + 1, 14, DOG)
+    cv.outline()
+    return cv
+
+
+def make_dog_sheet():
+    sheet = Image.new("RGBA", (16 * 6, 16 * 3), (0, 0, 0, 0))
+    for d in range(3):
+        for f in range(6):
+            sheet.alpha_composite(draw_dog(d, f).img, (f * 16, d * 16))
+    sheet.save(os.path.join(OUT, "zombie_dog.png"))
+
+
+def make_iron_barricade():
+    cv = Canvas(16, 20)
+    iron, iron_d, iron_l = (130, 136, 150), (88, 92, 106), (184, 190, 204)
+    for x in (2, 12):
+        cv.rect(x, 3, x + 1, 18, iron_d)
+    for y in (4, 9, 14):
+        cv.rect(0, y, 15, y + 3, iron)
+        cv.rect(0, y, 15, y, iron_l)
+        cv.rect(0, y + 3, 15, y + 3, iron_d)
+        for x in (1, 5, 10, 14):
+            cv.px(x, y + 1, (220, 224, 232))
+    for i in range(10):
+        cv.px(3 + i, 5 + i, iron_d)
+    cv.px(6, 12, (150, 90, 60))
+    cv.px(7, 12, (150, 90, 60))
+    cv.outline()
+    return cv
+
+
+def make_gate():
+    sheet = Canvas(32, 20)
+    wood, wood_d, wood_l = (168, 116, 68), (122, 82, 48), (200, 150, 96)
+    for f in range(2):
+        cv = Canvas(16, 20)
+        cv.rect(0, 2, 1, 19, wood_d)
+        cv.rect(14, 2, 15, 19, wood_d)
+        cv.rect(0, 1, 1, 1, wood_l)
+        cv.rect(14, 1, 15, 1, wood_l)
+        if f == 0:
+            for x in range(2, 14, 3):
+                cv.rect(x, 4, x + 1, 18, wood)
+                cv.px(x, 4, wood_l)
+            cv.rect(2, 7, 13, 8, wood_d)
+            cv.rect(2, 14, 13, 15, wood_d)
+            cv.rect(7, 10, 8, 12, (120, 124, 136))
+        else:
+            # open: the two doors folded to the sides
+            cv.rect(2, 4, 3, 18, wood)
+            cv.rect(12, 4, 13, 18, wood)
+            cv.px(2, 4, wood_l)
+            cv.px(13, 4, wood_l)
+        cv.rect(0, 1, 15, 2, wood_d)
+        cv.rect(0, 1, 15, 1, wood_l)
+        cv.outline()
+        sheet.paste(cv, f * 16, 0)
+    return sheet
+
+
+def make_slime():
+    cv = Canvas(8, 8)
+    for y in range(8):
+        for x in range(8):
+            dd = math.hypot(x - 3.5, y - 3.8)
+            if dd < 3.2:
+                cv.px(x, y, (110, 210, 70) if dd < 2.2 else (70, 160, 50))
+    cv.px(2, 2, (220, 255, 180))
+    cv.outline((30, 70, 30))
+    cv.img.save(os.path.join(OUT, "slime.png"))
+    pd = Canvas(20, 10)
+    for y in range(10):
+        for x in range(20):
+            dd = ((x - 9.5) / 9.5) ** 2 + ((y - 4.5) / 4.5) ** 2
+            if dd < 1.0:
+                pd.px(x, y, (110, 210, 70) if dd < 0.6 else (80, 170, 55), 170)
+    pd.px(6, 3, (200, 250, 160), 200)
+    pd.px(12, 5, (200, 250, 160), 200)
+    pd.img.save(os.path.join(OUT, "puddle.png"))
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     character_sheet("player", PLAYER)
@@ -1467,6 +1653,10 @@ def main():
     make_van(False).img.save(os.path.join(OUT, "van.png"))
     make_weapons()
     make_smoke()
+    make_dog_sheet()
+    make_iron_barricade().img.save(os.path.join(OUT, "barricade_iron.png"))
+    make_gate().img.save(os.path.join(OUT, "gate.png"))
+    make_slime()
     make_items()
     make_fx()
     make_ui()

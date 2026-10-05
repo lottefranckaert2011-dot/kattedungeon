@@ -29,6 +29,9 @@ var area_tint := Color.WHITE
 var van_repaired := false          # once fixed, the van stays fixed in every area
 var allies: Array = []             # survivors travelling with the player
 var rescued_kinds: Array = []
+var weather: Weather
+var force_weather := ""            # for tests: "rain" / "fog" / "clear"
+var _seen_types := {}
 
 var is_night := false
 var day_num := 1
@@ -89,6 +92,11 @@ func _ready() -> void:
 	hud.set_weapons(player.melee, player.gun)
 	hud.set_area("")
 
+	weather = Weather.new()
+	weather.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(weather)
+	hud.minimap.set_world(world)
+
 	shop_ui = Shop.new()
 	add_child(shop_ui)
 	shop_ui.closed.connect(_on_shop_closed)
@@ -120,7 +128,7 @@ func _setup_input() -> void:
 		"attack": [KEY_SPACE], "shoot": [KEY_F], "interact": [KEY_E],
 		"eat": [KEY_R, KEY_H], "pause": [KEY_P, KEY_ESCAPE], "start_night": [KEY_N],
 		"switch_gun": [KEY_TAB],
-		"build_1": [KEY_1], "build_2": [KEY_2], "build_3": [KEY_3], "build_4": [KEY_4], "build_5": [KEY_5],
+		"build_1": [KEY_1], "build_2": [KEY_2], "build_3": [KEY_3], "build_4": [KEY_4], "build_5": [KEY_5], "build_6": [KEY_6],
 	}
 	for action in map:
 		if InputMap.has_action(action):
@@ -166,6 +174,8 @@ func _build_world(area_index: int) -> void:
 	if van_repaired:
 		world.van.repair(false)
 	_spawn_waiting_survivors()
+	if hud:
+		hud.minimap.set_world(world)
 	camera.limit_left = 0
 	camera.limit_top = 0
 	camera.limit_right = int(world.map_size().x)
@@ -289,6 +299,7 @@ func _on_ad_finished() -> void:
 
 func _on_player_died() -> void:
 	state = State.OVER
+	weather.set_mode("clear")
 	build_kind = ""
 	ghost.visible = false
 	CrazySDK.gameplay_stop()
@@ -490,7 +501,12 @@ func _start_night() -> void:
 	spawn_timer = 2.0
 	Audio.play("bell", 0.0, 0.0)
 	Audio.play_music("night" if night_num % 2 == 1 else "night2")
-	hud.show_message(Lang.t("night_comes"), 3.0, Color(1.0, 0.5, 0.45))
+	var w := _pick_weather()
+	weather.set_mode(w)
+	var msg := Lang.t("night_comes")
+	if w != "clear":
+		msg += "\n" + Lang.t("weather_" + w)
+	hud.show_message(msg, 3.5, Color(1.0, 0.5, 0.45))
 	shake(2.0)
 
 
@@ -508,20 +524,42 @@ func _night_process(delta: float) -> void:
 		_end_night()
 
 
-func _pick_type() -> String:
+func _pick_weather() -> String:
+	if force_weather != "":
+		return force_weather
+	if night_num < 2:
+		return "clear"
 	var r := randf()
-	var brute_share := 0.0 if night_num < 3 else minf(0.05 * (night_num - 2), 0.25)
-	var runner_share := 0.0 if night_num < 2 else minf(0.12 + 0.03 * night_num, 0.35)
-	if r < brute_share:
-		return "brute"
-	if r < brute_share + runner_share:
-		return "runner"
+	if r < 0.35:
+		return "rain"
+	if r < 0.65:
+		return "fog"
+	return "clear"
+
+
+## Which zombie to spawn: more and nastier types as the nights go on.
+func _pick_type() -> String:
+	var n := night_num
+	var shares := {
+		"brute": 0.0 if n < 3 else minf(0.05 * (n - 2), 0.2),
+		"runner": 0.0 if n < 2 else minf(0.1 + 0.02 * n, 0.25),
+		"dog": 0.0 if n < 2 else minf(0.1 + 0.02 * n, 0.22),
+		"spitter": 0.0 if n < 3 else minf(0.06 + 0.02 * (n - 3), 0.15),
+		"bloater": 0.0 if n < 3 else minf(0.05 + 0.015 * (n - 3), 0.12),
+	}
+	var r := randf()
+	for t in shares:
+		if r < shares[t]:
+			return t
+		r -= shares[t]
 	return "walker"
 
 
 func _end_night() -> void:
 	is_night = false
 	world.is_night = false
+	weather.set_mode("clear")
+	hud.minimap.set_world(world)
 	_revive_allies()
 	nights_survived = night_num
 	day_num += 1
@@ -556,6 +594,9 @@ func _spawn_zombie(type: String, cell := Vector2i(-1, -1)) -> void:
 	z.position = world.cell_center(cell) + Vector2(randf_range(-5, 5), randf_range(-5, 5))
 	z.died.connect(_on_zombie_died)
 	world.entities.add_child(z)
+	if type in ["dog", "bloater", "spitter", "brute"] and not _seen_types.has(type):
+		_seen_types[type] = true
+		hud.show_message(Lang.t("intro_" + type), 4.0, Color(1.0, 0.75, 0.4))
 	world.zombies.append(z)
 
 
@@ -606,12 +647,7 @@ func _toggle_build(kind: String) -> void:
 	build_kind = "" if build_kind == kind else kind
 	hud.set_selected(build_kind, player)
 	if build_kind != "":
-		var tex: Texture2D = Res.STRUCT_TEX[build_kind]
-		if build_kind == "campfire":
-			var at := AtlasTexture.new()
-			at.atlas = tex
-			at.region = Rect2(0, 0, 16, 16)
-			tex = at
+		var tex: Texture2D = Res.struct_icon(build_kind)
 		ghost.texture = tex
 		ghost.offset = Vector2(0, 16 - tex.get_height() + 6 - 2)
 		hud.show_message(Lang.t("build_mode_touch" if hud.touch.visible else "build_mode"), 1.6, Color(0.8, 0.95, 1.0))
@@ -693,6 +729,11 @@ func _nearest_interactable():
 			if d < reach and d < bd + 8.0:
 				bd = d
 				best = e
+		elif e is Structure and e.kind == "barricade":
+			var du: float = e.global_position.distance_to(p)
+			if du < bd:
+				bd = du
+				best = e
 		elif e is Structure and e.kind == "turret" and e.ammo < Structure.TURRET_MAX_AMMO:
 			var d2: float = e.global_position.distance_to(p)
 			if d2 < bd:
@@ -715,6 +756,8 @@ func _update_prompt() -> void:
 			txt = "%s (%s)" % [Lang.t("van_repair"), Res.dict_text(Res.van_cost(area))]
 	elif it is Prop:
 		txt = Lang.t("search")
+	elif it is Structure and it.kind == "barricade":
+		txt = "%s (%s)" % [Lang.t("upgrade_iron"), Res.dict_text(Res.BUILD["barricade_iron"]["cost"])]
 	elif it is Structure:
 		txt = Lang.t("refill")
 	hud.prompt_label.text = "" if hud.touch.visible else txt
@@ -738,6 +781,17 @@ func _interact() -> void:
 			Fx.text(world, it.interact_point() + Vector2(0, -10), Lang.t("empty"), Color(0.8, 0.8, 0.8))
 		for k in loot:
 			Pickup.spawn(world, k, loot[k], it.interact_point() + Vector2(0, -4))
+	elif it is Structure and it.kind == "barricade":
+		var cost: Dictionary = Res.BUILD["barricade_iron"]["cost"]
+		if not player.has_cost(cost):
+			hud.show_message("%s: %s" % [Lang.t("not_enough"), Res.dict_text(cost)], 1.6, Color(1, 0.6, 0.5))
+			Audio.play("error", -6.0)
+			return
+		player.pay(cost)
+		it.upgrade("barricade_iron")
+		Audio.play("reload", -2.0)
+		Audio.play("build", -4.0, 0.1, null, 0.8)
+		Fx.text(world, it.global_position + Vector2(0, -22), Lang.t("iron_done"), Color(0.85, 0.9, 1.0))
 	elif it is Structure:
 		var used: int = it.refill(mini(player.inv["ammo"], 20))
 		if used > 0:
@@ -756,7 +810,7 @@ const HINTS_NL := [
 	"Sla op rotsen voor STEEN",
 	"Iemand roept HELP! Volg de gele pijl en neem ze mee met E",
 	"Doorzoek huizen en kratten met E",
-	"Kies 1-5 om te bouwen: zet barricades op de wegen!",
+	"Kies 1-6 om te bouwen: zet barricades op de wegen!",
 	"Rechts klikken / F = schieten (kost kogels)",
 	"Zombies laten MUNTEN vallen: koop wapens in de paarse winkel",
 	"Maak de kapotte blauwe bus en rijd naar een nieuw gebied!",
@@ -766,7 +820,7 @@ const HINTS_EN := [
 	"Hit rocks for STONE",
 	"Someone shouts HELP! Follow the yellow arrow and take them along with E",
 	"Search houses and crates with E",
-	"Press 1-5 to build: block the roads with barricades!",
+	"Press 1-6 to build: block the roads with barricades!",
 	"Right click / F = shoot (uses ammo)",
 	"Zombies drop COINS: buy weapons in the purple shop",
 	"Fix the broken blue van and drive to a new area!",
@@ -860,6 +914,7 @@ func _use_van(v: Prop) -> void:
 
 func _travel() -> void:
 	state = State.TRAVEL
+	weather.set_mode("clear")
 	if build_kind != "":
 		_toggle_build(build_kind)
 	world.process_mode = Node.PROCESS_MODE_DISABLED

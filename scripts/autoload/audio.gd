@@ -38,6 +38,15 @@ const SFX := {
 	"groan": ["groan_16", "groan_17", "groan_18", "groan_19", "groan_20", "groan_21"],
 	"zattack": ["zattack_3", "zattack_5", "zattack_6", "zattack_7", "zattack_10", "zattack_11"],
 	"zdie": ["zdie_1", "zdie_8", "zdie_9", "zdie_12", "zdie_15"],
+	"boom": ["boom"],
+	"spit": ["spit"],
+	"splat": ["splat"],
+	"thunder": ["thunder"],
+}
+
+const AMBIENCE := {
+	"rain": "res://assets/audio/sfx/rain.ogg",
+	"wind": "res://assets/audio/sfx/wind.ogg",
 }
 
 const POOL_SIZE := 16
@@ -50,6 +59,8 @@ var _music_b: AudioStreamPlayer
 var _current_music := ""
 var _last_play := {}
 var listener_pos := Vector2.ZERO
+var _ambience: AudioStreamPlayer
+var _ambience_key := ""
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -62,6 +73,10 @@ func _ready() -> void:
 		AudioServer.set_bus_send(AudioServer.bus_count - 1, "Master")
 	_music_a = _make_music_player()
 	_music_b = _make_music_player()
+	_ambience = AudioStreamPlayer.new()
+	_ambience.bus = "SFX"
+	_ambience.volume_db = -80
+	add_child(_ambience)
 	for i in POOL_SIZE:
 		var p := AudioStreamPlayer.new()
 		p.bus = "SFX"
@@ -119,7 +134,26 @@ func play_music(key: String, fade := 1.2) -> void:
 	tw2.tween_property(new, "volume_db", 0.0, fade)
 
 ## Plays a sound. Pass a world position to get distance attenuation.
-func play(key: String, volume_db := 0.0, pitch_var := 0.1, world_pos = null) -> void:
+## Looping weather sound ("rain", "wind" or "" to fade out).
+func play_ambience(key: String, volume_db := -8.0) -> void:
+	if key == _ambience_key:
+		return
+	_ambience_key = key
+	var tw := create_tween()
+	if key == "":
+		tw.tween_property(_ambience, "volume_db", -60.0, 2.0)
+		tw.tween_callback(_ambience.stop)
+		return
+	var stream = load(AMBIENCE[key])
+	if stream is AudioStreamOggVorbis:
+		stream.loop = true
+	_ambience.stream = stream
+	_ambience.volume_db = -40.0
+	_ambience.play()
+	tw.tween_property(_ambience, "volume_db", volume_db, 2.0)
+
+
+func play(key: String, volume_db := 0.0, pitch_var := 0.1, world_pos = null, pitch := 1.0) -> void:
 	if not _streams.has(key) or _streams[key].is_empty():
 		return
 	var now := Time.get_ticks_msec()
@@ -137,5 +171,5 @@ func play(key: String, volume_db := 0.0, pitch_var := 0.1, world_pos = null) -> 
 	_pool_i = (_pool_i + 1) % POOL_SIZE
 	p.stream = _streams[key].pick_random()
 	p.volume_db = vol
-	p.pitch_scale = 1.0 + randf_range(-pitch_var, pitch_var)
+	p.pitch_scale = pitch + randf_range(-pitch_var, pitch_var)
 	p.play()

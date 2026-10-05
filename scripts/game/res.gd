@@ -57,7 +57,13 @@ const STRUCT_TEX := {
 	"spikes": preload("res://assets/sprites/spikes.png"),
 	"turret": preload("res://assets/sprites/turret_base.png"),
 	"campfire": preload("res://assets/sprites/campfire.png"),
+	"gate": preload("res://assets/sprites/gate.png"),
+	"barricade_iron": preload("res://assets/sprites/barricade_iron.png"),
 }
+## Structures drawn from a sprite sheet: number of frames.
+const STRUCT_FRAMES := {"campfire": 3, "gate": 2}
+const SLIME := preload("res://assets/sprites/slime.png")
+const PUDDLE := preload("res://assets/sprites/puddle.png")
 const TURRET_GUN := preload("res://assets/sprites/turret_gun.png")
 
 const ZOMBIE_TEX := {
@@ -68,6 +74,9 @@ const ZOMBIE_TEX := {
 	"zombie_worker": preload("res://assets/sprites/zombie_worker.png"),
 	"zombie_runner": preload("res://assets/sprites/zombie_runner.png"),
 	"zombie_brute": preload("res://assets/sprites/zombie_brute.png"),
+	"zombie_dog": preload("res://assets/sprites/zombie_dog.png"),
+	"zombie_bloater": preload("res://assets/sprites/zombie_bloater.png"),
+	"zombie_spitter": preload("res://assets/sprites/zombie_spitter.png"),
 }
 
 ## Index of each 12x12 icon inside items.png
@@ -143,14 +152,32 @@ const BUILD := {
 	"spikes": {"cost": {"wood": 2, "scrap": 2}, "hp": 40, "blocks": false, "weight": 1.0},
 	"turret": {"cost": {"scrap": 5, "wood": 3, "stone": 2}, "hp": 90, "blocks": true, "weight": 8.0},
 	"campfire": {"cost": {"wood": 5, "stone": 2}, "hp": 60, "blocks": false, "weight": 1.0},
+	"gate": {"cost": {"wood": 6, "scrap": 2}, "hp": 120, "blocks": true, "weight": 10.0, "gate": true},
+	# Not in the build bar: made by upgrading a wooden barricade with E.
+	"barricade_iron": {"cost": {"scrap": 4, "stone": 1}, "hp": 240, "blocks": true, "weight": 12.0},
 }
-const BUILD_ORDER := ["barricade", "wall", "spikes", "turret", "campfire"]
+const BUILD_ORDER := ["barricade", "gate", "wall", "spikes", "turret", "campfire"]
+
+## Single-frame texture of a structure (for the build bar and the ghost preview).
+static func struct_icon(kind: String) -> Texture2D:
+	var tex: Texture2D = STRUCT_TEX[kind]
+	if not STRUCT_FRAMES.has(kind):
+		return tex
+	var at := AtlasTexture.new()
+	at.atlas = tex
+	at.region = Rect2(0, 0, tex.get_width() / STRUCT_FRAMES[kind], tex.get_height())
+	return at
 
 const ZOMBIE_TYPES := {
 	"walker": {"hp": 32.0, "speed": 24.0, "damage": 8.0, "struct_damage": 8.0, "score": 10},
 	"runner": {"hp": 20.0, "speed": 46.0, "damage": 6.0, "struct_damage": 5.0, "score": 15},
 	"brute": {"hp": 120.0, "speed": 17.0, "damage": 20.0, "struct_damage": 28.0, "score": 35},
+	"dog": {"hp": 16.0, "speed": 64.0, "damage": 5.0, "struct_damage": 3.0, "score": 12},
+	"bloater": {"hp": 55.0, "speed": 15.0, "damage": 30.0, "struct_damage": 150.0, "score": 25},
+	"spitter": {"hp": 26.0, "speed": 22.0, "damage": 9.0, "struct_damage": 10.0, "score": 20},
 }
+const ZOMBIE_SKIN := {"runner": "zombie_runner", "brute": "zombie_brute", "dog": "zombie_dog",
+	"bloater": "zombie_bloater", "spitter": "zombie_spitter"}
 const WALKER_SKINS := ["zombie_farmer", "zombie_cap", "zombie_granny", "zombie_girl", "zombie_worker"]
 
 static var _icon_cache := {}

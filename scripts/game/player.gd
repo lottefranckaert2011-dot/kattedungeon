@@ -39,6 +39,7 @@ var _step := 0.0
 var _swing_t := 0.0
 var _gun_show := 0.0
 var _chop_tick := 0
+var _slow := 0.0
 
 
 func _ready() -> void:
@@ -104,7 +105,8 @@ func _physics_process(delta: float) -> void:
 		var k := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 		if k != Vector2.ZERO:
 			input = k
-	velocity = input * SPEED
+	_slow = maxf(0.0, _slow - delta)
+	velocity = input * SPEED * (0.55 if _slow > 0.0 else 1.0)
 	move_and_slide()
 
 	if touch_mode:
@@ -151,6 +153,8 @@ func _physics_process(delta: float) -> void:
 		sprite.modulate.a = 0.5 if int(_invuln * 20.0) % 2 == 0 else 1.0
 	else:
 		sprite.modulate.a = 1.0
+	var a := sprite.modulate.a
+	sprite.modulate = Color(0.7, 1.0, 0.6, a) if _slow > 0.0 else Color(1, 1, 1, a)
 
 
 func _face(v: Vector2) -> void:
@@ -313,6 +317,11 @@ func eat() -> void:
 	inventory_changed.emit()
 	heal(FOOD_HEAL, true)
 	Audio.play("eat", -4.0)
+
+
+## Hit by spitter slime: walk slower for a moment.
+func slow_down(time: float) -> void:
+	_slow = maxf(_slow, time)
 
 
 func max_hp_value() -> float:
