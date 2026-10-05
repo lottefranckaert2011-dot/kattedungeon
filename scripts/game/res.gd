@@ -116,6 +116,7 @@ const SHOP := [
 ## Every area has its own season and feel; the layout (roads, houses, pond...) is random each time.
 const AREAS := [
 	{"nl": "Het Dorp", "en": "The Village", "biome": "summer", "tint": Color(1, 1, 1), "houses": 6, "trees": 1.0, "rocks": 1.0, "pond": true, "farm": true},
+	{"nl": "Het Landgoed", "en": "The Estate", "biome": "summer", "tint": Color(1.0, 0.98, 0.94), "houses": 3, "trees": 0.9, "rocks": 0.8, "pond": true, "farm": false, "mansion": true},
 	{"nl": "Het Donkere Bos", "en": "The Dark Forest", "biome": "summer", "tint": Color(0.8, 0.93, 0.84), "houses": 3, "trees": 2.2, "rocks": 0.8, "pond": true, "farm": false},
 	{"nl": "Het Herfstdorp", "en": "Autumn Village", "biome": "autumn", "tint": Color(1.0, 0.96, 0.9), "houses": 5, "trees": 1.3, "rocks": 0.8, "pond": true, "farm": true},
 	{"nl": "Het Winterdorp", "en": "Winter Village", "biome": "winter", "tint": Color(0.92, 0.96, 1.0), "houses": 5, "trees": 1.0, "rocks": 1.0, "pond": true, "farm": false},

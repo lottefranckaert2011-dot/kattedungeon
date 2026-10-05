@@ -9,6 +9,9 @@ signal night_pressed
 var root: Control
 var hp_fill: ColorRect
 var hp_label: Label
+var hunger_fill: ColorRect
+var _hunger_t := 0.0
+var _hunger_frac := 1.0
 var melee_icon: TextureRect
 var gun_icon: TextureRect
 var area_label: Label
@@ -95,7 +98,7 @@ func _icon(name: String, pos: Vector2) -> TextureRect:
 
 
 func _build_status() -> void:
-	var p := _panel(Vector2(4, 4), Vector2(170, 42))
+	var p := _panel(Vector2(4, 4), Vector2(170, 50))
 	root.add_child(p)
 	p.add_child(_icon("heart", Vector2(5, 4)))
 	var bg := ColorRect.new()
@@ -111,16 +114,30 @@ func _build_status() -> void:
 	hp_label = UITheme.label("100", 16)
 	hp_label.position = Vector2(80, 1)
 	p.add_child(hp_label)
+	# hunger bar
+	var hb := ColorRect.new()
+	hb.color = Color(0.15, 0.08, 0.1)
+	hb.position = Vector2(20, 18)
+	hb.size = Vector2(144, 6)
+	p.add_child(hb)
+	hunger_fill = ColorRect.new()
+	hunger_fill.color = Color(0.95, 0.65, 0.25)
+	hunger_fill.position = Vector2(21, 19)
+	hunger_fill.size = Vector2(142, 4)
+	p.add_child(hunger_fill)
+	var apple := _icon("food", Vector2(5, 15))
+	apple.scale = Vector2(0.75, 0.75)
+	p.add_child(apple)
 	var x := 4
 	for r in Res.RESOURCES:
-		p.add_child(_icon(r, Vector2(x, 24)))
+		p.add_child(_icon(r, Vector2(x, 32)))
 		var l := UITheme.label("0", 16)
-		l.position = Vector2(x + 13, 19)
+		l.position = Vector2(x + 13, 27)
 		p.add_child(l)
 		res_labels[r] = l
 		x += 27
 	# current weapons
-	var wp := _panel(Vector2(4, 48), Vector2(46, 24))
+	var wp := _panel(Vector2(4, 56), Vector2(46, 24))
 	root.add_child(wp)
 	melee_icon = TextureRect.new()
 	melee_icon.position = Vector2(4, 4)
@@ -131,7 +148,7 @@ func _build_status() -> void:
 	gun_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wp.add_child(gun_icon)
 	allies_box = VBoxContainer.new()
-	allies_box.position = Vector2(4, 76)
+	allies_box.position = Vector2(4, 84)
 	allies_box.add_theme_constant_override("separation", 1)
 	allies_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(allies_box)
@@ -141,7 +158,7 @@ func _build_status() -> void:
 	pointer.draw.connect(_draw_pointer)
 	root.add_child(pointer)
 	area_label = UITheme.label("", 16, Color(0.8, 0.9, 1.0))
-	area_label.position = Vector2(54, 50)
+	area_label.position = Vector2(54, 58)
 	root.add_child(area_label)
 
 
@@ -300,6 +317,20 @@ func update_affordable(player: Player) -> void:
 	for k in slots:
 		var ok := player.has_cost(Res.BUILD[k]["cost"])
 		slots[k].modulate = Color.WHITE if ok else Color(0.6, 0.55, 0.55, 0.85)
+
+
+func set_hunger(hunger: float) -> void:
+	_hunger_frac = clampf(hunger / 100.0, 0.0, 1.0)
+	hunger_fill.size.x = 142.0 * _hunger_frac
+
+
+func _process(delta: float) -> void:
+	# the hunger bar blinks when you are very hungry
+	_hunger_t += delta
+	if _hunger_frac < 0.25:
+		hunger_fill.color = Color(1.0, 0.3, 0.2) if int(_hunger_t * 4.0) % 2 == 0 else Color(0.95, 0.65, 0.25)
+	else:
+		hunger_fill.color = Color(0.95, 0.65, 0.25)
 
 
 func set_hp(hp: float, max_hp: float) -> void:

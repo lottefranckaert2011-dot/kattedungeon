@@ -76,6 +76,7 @@ func _ready() -> void:
 	player.message.connect(func(t): hud.show_message(t, 1.2, Color(1, 0.6, 0.5)))
 
 	player.weapons_changed.connect(_on_weapons_changed)
+	player.hunger_changed.connect(func(h): hud.set_hunger(h))
 
 	canvas_mod = CanvasModulate.new()
 	canvas_mod.color = DAY_COLOR
@@ -750,9 +751,12 @@ func _nearest_interactable():
 	var bd := 22.0
 	var p := player.global_position
 	if world.inside != null:
-		var room: Interior = world.get_interior(world.inside)
-		if p.distance_to(room.exit_pos) < 24.0:
+		var room: Interior = world.inside_room
+		if room.floor_i == 0 and p.distance_to(room.exit_pos) < 24.0:
 			return room
+		var st := room.nearest_stairs(p, 20.0)
+		if st:
+			return st
 		return room.nearest_container(p, 22.0)
 	for sv in world.waiting:
 		var ds: float = sv.global_position.distance_to(p)
@@ -793,6 +797,8 @@ func _update_prompt() -> void:
 	var txt := ""
 	if it is Interior:
 		txt = Lang.t("go_out")
+	elif it is Furniture and it.is_stairs():
+		txt = Lang.t("stairs_up" if it.kind == "stairs_up" else "stairs_down")
 	elif it is Furniture:
 		txt = Lang.t("search")
 	elif it is Prop and it.def.get("home", false):
@@ -825,6 +831,8 @@ func _interact() -> void:
 		return
 	if it is Interior:
 		_exit_house()
+	elif it is Furniture and it.is_stairs():
+		_change_floor(1 if it.kind == "stairs_up" else -1)
 	elif it is Furniture:
 		_search_furniture(it)
 	elif it is Prop and it.def.get("enter", false):
@@ -869,6 +877,7 @@ const HINTS_NL := [
 	"Hak bomen met je bijl voor HOUT (klik / spatie)",
 	"Sla op rotsen voor STEEN",
 	"Iemand roept HELP! Volg de gele pijl en neem ze mee met E",
+	"Je krijgt honger (oranje balk): eet appels met R",
 	"Doorzoek huizen en kratten met E",
 	"Kies 1-6 om te bouwen: zet barricades op de wegen!",
 	"Rechts klikken / F = schieten (kost kogels)",
@@ -879,6 +888,7 @@ const HINTS_EN := [
 	"Chop trees with your axe for WOOD (click / space)",
 	"Hit rocks for STONE",
 	"Someone shouts HELP! Follow the yellow arrow and take them along with E",
+	"You get hungry (orange bar): eat apples with R",
 	"Search houses and crates with E",
 	"Press 1-6 to build: block the roads with barricades!",
 	"Right click / F = shoot (uses ammo)",
@@ -889,6 +899,7 @@ const HINTS_TOUCH_NL := [
 	"Hak bomen met de bijl-knop voor HOUT",
 	"Sla op rotsen voor STEEN",
 	"Iemand roept HELP! Volg de gele pijl en tik E om ze mee te nemen",
+	"Je krijgt honger (oranje balk): tik de appel-knop om te eten",
 	"Loop naar een huis en tik E om te doorzoeken",
 	"Tik onderaan een gebouw en dan BOUW",
 	"De pistool-knop schiet automatisch op zombies",
@@ -899,6 +910,7 @@ const HINTS_TOUCH_EN := [
 	"Chop trees with the axe button for WOOD",
 	"Hit rocks for STONE",
 	"Someone shouts HELP! Follow the yellow arrow and tap E to take them along",
+	"You get hungry (orange bar): tap the apple button to eat",
 	"Walk to a house and tap E to search it",
 	"Tap a building at the bottom, then BUILD",
 	"The pistol button auto-aims at zombies",
@@ -1104,6 +1116,7 @@ func _enter_house(house: Prop) -> void:
 	var room: Interior = world.get_interior(house)
 	_fade(func():
 		world.inside = house
+		world.inside_room = room
 		player.position = room.spawn_pos
 		player.velocity = Vector2.ZERO
 		for a in allies:
@@ -1162,7 +1175,7 @@ func _update_inside(delta: float) -> void:
 	if house == null:
 		hud.set_door(false, 0.0)
 		return
-	var room: Interior = world.get_interior(house)
+	var room: Interior = world.inside_room
 	if room.at_exit(player.global_position):
 		_exit_house()
 		return
@@ -1187,6 +1200,8 @@ func _search_furniture(f: Furniture) -> void:
 	f.set_searched(true)
 	Audio.play("search_crate", -3.0)
 	var loot := Interior.roll_loot(day_num)
+	if f.kind == "treasure":
+		loot = {"weapon": 1, "coins": 25, "ammo": 20}
 	var at := f.global_position + Vector2(0, 6)
 	for k in loot:
 		if k == "weapon":
@@ -1203,3 +1218,22 @@ func _search_furniture(f: Furniture) -> void:
 			hud.show_message(Lang.t("found_weapon") % Lang.t("w_" + id), 2.5, Color(1.0, 0.9, 0.4))
 		else:
 			Pickup.spawn(world, k, loot[k], at)
+
+
+## Take the stairs in a house with more floors.
+func _change_floor(dir: int) -> void:
+	var room: Interior = world.inside_room
+	var target_i := room.floor_i + dir
+	if target_i < 0 or target_i >= room.floors.size():
+		return
+	var target: Interior = room.floors[target_i]
+	Audio.play("step", -2.0, 0.1)
+	_fade(func():
+		world.inside_room = target
+		var pos := target.arrival(dir > 0)
+		player.position = pos
+		player.velocity = Vector2.ZERO
+		for a in allies:
+			a.place_near(pos + Vector2(0, -10))
+		_camera_to_room(target)
+		hud.show_message(Lang.t("floor_%d" % target_i), 1.8, Color(0.85, 0.95, 1.0)))

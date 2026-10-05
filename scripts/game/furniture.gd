@@ -3,8 +3,8 @@ extends StaticBody2D
 ## A piece of furniture inside a house. Cupboards, chests and bookshelves
 ## sparkle until you search them.
 
-const OPEN_TEX := {"cupboard": "cupboard_open", "chest": "chest_open", "shelf": "shelf_empty"}
-const SOLID := ["bed", "bed_blue", "table", "cupboard", "chest", "shelf", "fireplace", "plant"]
+const OPEN_TEX := {"cupboard": "cupboard_open", "chest": "chest_open", "shelf": "shelf_empty", "treasure": "treasure_open"}
+const SOLID := ["bed", "bed_blue", "table", "cupboard", "chest", "shelf", "fireplace", "plant", "sofa", "box", "treasure"]
 
 var kind := ""
 var searchable := false
@@ -55,3 +55,7 @@ func set_searched(on: bool) -> void:
 	sprite.texture = Res.tex("res://assets/sprites/in_%s.png" % name)
 	if sparkle:
 		sparkle.visible = not on
+
+
+func is_stairs() -> bool:
+	return kind == "stairs_up" or kind == "stairs_down"

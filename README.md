@@ -35,7 +35,7 @@ Zombies vallen ook je teamleden aan. Raakt iemand gewond, dan ligt die even neer
 | Houten barricade ijzer maken | E (naast de barricade) | E-knop |
 | Huis / krat doorzoeken, winkel, bus maken / wegrijden, geschut bijvullen | E | E-knop |
 | Ander geweer pakken | Tab / muiswiel | `<>`-knop |
-| Eten (+30 HP) | R | appel-knop |
+| Eten (vult je honger, +15 HP) | R | appel-knop |
 | Meteen de nacht starten (bonuspunten) | N | knop bovenaan |
 | Pauze | P / Esc | pauzeknop |
 
@@ -58,6 +58,20 @@ Zombies vallen ook je teamleden aan. Raakt iemand gewond, dan ligt die even neer
   je geneest langzaam en **je team gaat mee naar binnen**.
 - Zombies weten waar je bent en **bonken op de deur**. Bovenin zie je hoe sterk de deur nog is.
   Gaat hij kapot, dan moet je naar buiten. Elke ochtend is de deur weer heel. Tip: zet barricades voor je deur!
+
+### Honger
+
+Onder je levensbalk staat een **oranje hongerbalk**. Die loopt langzaam leeg (in ongeveer 4 minuten).
+Is hij leeg, dan verlies je elke 2 seconden wat leven. Eet dus op tijd: appels vind je in fruitbomen,
+bessenstruiken, kasten in huizen, bij zombies en in de winkel.
+
+### Het Landgoed en het grote landhuis
+
+Het tweede landje is **Het Landgoed**. Daar woon je in een **groot landhuis met 3 verdiepingen**:
+
+- **Begane grond**: woonkamer met open haard en bank, veilig en je geneest er.
+- **Eerste verdieping** (trap op met E): slaapkamers met kasten en kisten om te doorzoeken.
+- **Zolder**: dozen, kisten en een gouden **schatkist** met altijd een wapen, munten en kogels.
 
 ### Elke nacht moeilijker
 
@@ -93,11 +107,12 @@ en staat hij in elk nieuw gebied klaar. Wegrijden kan alleen overdag. Elk nieuw 
 | Gebied | Hoe ziet het eruit? |
 |---|---|
 | 1. Het Dorp | zomer, je huis + 6 huisjes + winkel, vijver, akker |
-| 2. Het Donkere Bos | heel veel bomen, donkerder |
-| 3. Het Herfstdorp | oranje en rode bomen, akker |
-| 4. Het Winterdorp | sneeuw, besneeuwde daken, bevroren vijver |
-| 5. De Oude Boerderij | herfst, grote akker, weinig bomen |
-| 6. De Rotsvallei | veel rotsen (steen!) |
+| 2. Het Landgoed | groot landhuis met 3 verdiepingen als jouw huis |
+| 3. Het Donkere Bos | heel veel bomen, donkerder |
+| 4. Het Herfstdorp | oranje en rode bomen, akker |
+| 5. Het Winterdorp | sneeuw, besneeuwde daken, bevroren vijver |
+| 6. De Oude Boerderij | herfst, grote akker, weinig bomen |
+| 7. De Rotsvallei | veel rotsen (steen!) |
 | daarna | de seizoenen komen terug, maar elk dorp ziet er weer anders uit en de zombies worden steeds sterker |
 
 ### Zombies

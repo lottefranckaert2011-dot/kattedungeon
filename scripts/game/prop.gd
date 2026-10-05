@@ -26,6 +26,8 @@ const DEFS := {
 	"house_white": {"hp": -1, "enter": true, "col": Vector2(56, 24), "house": true},
 	"shop": {"hp": -1, "col": Vector2(56, 24), "house": true, "shop": true},
 	"home": {"hp": -1, "enter": true, "col": Vector2(56, 24), "house": true, "home": true},
+	"mansion": {"hp": -1, "enter": true, "col": Vector2(88, 28), "house": true, "home": true,
+		"size": Vector2i(6, 7), "floors": 3},
 	"van": {"hp": -1, "col": Vector2(40, 10), "van": true, "fp": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)]},
 }
 
@@ -44,12 +46,17 @@ var _smoke: CPUParticles2D
 var _shake := 0.0
 
 
+## Size of a house in tiles (width, height of the picture).
+static func house_size(k: String) -> Vector2i:
+	return DEFS.get(k, {}).get("size", Vector2i(4, 4))
+
+
 static func footprint_of(k: String) -> Array:
 	var d: Dictionary = DEFS.get(k, {})
 	if d.get("house", false):
 		var fp := []
 		for y in range(-1, 1):
-			for x in range(4):
+			for x in range(house_size(k).x):
 				fp.append(Vector2i(x, y))
 		return fp
 	return d.get("fp", [Vector2i.ZERO])
@@ -77,8 +84,9 @@ func setup(w, k: String, c: Vector2i, extra := {}) -> void:
 			world.set_solid(cc, true)
 	if def.get("house", false):
 		# reserve the roof area so nothing spawns hidden under it
-		for y in range(-3, 2):
-			for x in range(-1, 5):
+		var hs := house_size(k)
+		for y in range(-(hs.y - 1), 2):
+			for x in range(-1, hs.x + 1):
 				world.reserved[c + Vector2i(x, y)] = true
 
 	position = Vector2(c.x * 16 + width_cells * 8, c.y * 16 + 14)
@@ -105,7 +113,7 @@ func setup(w, k: String, c: Vector2i, extra := {}) -> void:
 		cs.shape = rs
 		cs.position = Vector2(0, -rs.size.y / 2.0 + 1)
 		if def.get("house", false):
-			cs.position = Vector2(0, -12)
+			cs.position = Vector2(0, -rs.size.y / 2.0)
 		add_child(cs)
 
 	if def.get("enter", false):

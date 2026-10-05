@@ -1893,6 +1893,187 @@ def make_interior():
     save(cv, "sparkle")
 
 
+# ---------------------------------------------------------------- the big manor house
+
+def make_mansion(snow=False):
+    """A big house with three floors (96x100): brick walls, two rows of windows, attic, chimneys."""
+    w, h = 96, 100
+    r = random.Random(12)
+    cv = Canvas(w, h)
+    brick, brick_d = (176, 96, 80), (148, 76, 64)
+    stone, stone_d = (196, 190, 176), (160, 154, 142)
+    thatch, thatch_d, thatch_l = (230, 180, 110), (204, 148, 86), (244, 204, 140)
+    post_d = (80, 50, 34)
+    wall_top, wall_bottom = 30, h - 4
+    # walls with bricks
+    cv.rect(4, wall_top, w - 5, wall_bottom, brick)
+    for y in range(wall_top + 2, wall_bottom, 3):
+        cv.rect(4, y, w - 5, y, brick_d)
+        off = 0 if (y // 3) % 2 == 0 else 3
+        for x in range(4 + off, w - 4, 6):
+            cv.px(x, y + 1, brick_d)
+    # stone band between the floors and stone corners
+    for y in (wall_top + 1, wall_top + 32):
+        cv.rect(4, y, w - 5, y + 2, stone)
+        cv.rect(4, y + 2, w - 5, y + 2, stone_d)
+    for x in (4, w - 9):
+        cv.rect(x, wall_top, x + 4, wall_bottom, stone)
+        for y in range(wall_top + 2, wall_bottom, 6):
+            cv.rect(x, y, x + 4, y, stone_d)
+    cv.rect(4, wall_bottom - 1, w - 5, wall_bottom, darker(brick, 0.7))
+
+    def window(wx, wy, wh=11):
+        cv.rect(wx, wy, wx + 9, wy + wh, (90, 60, 44))
+        cv.rect(wx + 1, wy + 1, wx + 8, wy + wh - 1, (250, 222, 140))
+        cv.rect(wx + 1, wy + wh // 2, wx + 8, wy + wh // 2, (90, 60, 44))
+        cv.rect(wx + 4, wy + 1, wx + 5, wy + wh - 1, (90, 60, 44))
+        cv.rect(wx + 1, wy + 1, wx + 3, wy + 1, (255, 246, 210))
+        cv.rect(wx - 1, wy + wh + 1, wx + 10, wy + wh + 1, stone)
+        # shutters
+        cv.rect(wx - 3, wy, wx - 2, wy + wh, (70, 110, 80))
+        cv.rect(wx + 11, wy, wx + 12, wy + wh, (70, 110, 80))
+
+    # first floor windows
+    for wx in (14, 34, 52, 72):
+        window(wx, wall_top + 7)
+    # ground floor windows
+    for wx in (14, 72):
+        window(wx, wall_top + 40, 13)
+    # big double door with steps and a little roof
+    dx = w // 2 - 8
+    cv.rect(dx, wall_bottom - 20, dx + 15, wall_bottom, (110, 60, 40))
+    cv.rect(dx + 7, wall_bottom - 19, dx + 8, wall_bottom, (80, 44, 30))
+    cv.rect(dx, wall_bottom - 20, dx + 15, wall_bottom - 20, post_d)
+    cv.px(dx + 5, wall_bottom - 9, (240, 210, 110))
+    cv.px(dx + 10, wall_bottom - 9, (240, 210, 110))
+    cv.rect(dx - 4, wall_bottom - 25, dx + 19, wall_bottom - 22, (200, 70, 60))
+    cv.rect(dx - 4, wall_bottom - 22, dx + 19, wall_bottom - 22, (150, 50, 44))
+    cv.rect(dx - 3, wall_bottom - 21, dx - 2, wall_bottom, stone)
+    cv.rect(dx + 17, wall_bottom - 21, dx + 18, wall_bottom, stone)
+    cv.rect(dx - 4, wall_bottom + 1, dx + 19, wall_bottom + 2, stone_d)
+    # roof
+    for y in range(4, wall_top + 2):
+        t = (y - 4) / (wall_top - 2)
+        inset = int(14 * (1 - t))
+        x0, x1 = inset + 1, w - inset - 2
+        for x in range(x0, x1 + 1):
+            c = thatch
+            if (x * 3 + y * 7 + r.randint(0, 3)) % 9 == 0:
+                c = thatch_d
+            elif (x + y) % 11 == 0:
+                c = thatch_l
+            if x > x1 - 3:
+                c = thatch_d
+            cv.px(x, y, c)
+    cv.rect(1, wall_top - 1, w - 2, wall_top + 1, (222, 132, 92))
+    cv.rect(1, wall_top + 1, w - 2, wall_top + 1, darker((222, 132, 92), 0.75))
+    cv.rect(16, 4, w - 17, 5, thatch_l)
+    # attic dormers (the third floor)
+    for ax in (22, w // 2 - 6, w - 34):
+        cv.rect(ax, 10, ax + 11, 21, thatch_d)
+        cv.rect(ax + 2, 13, ax + 9, 20, (90, 60, 44))
+        cv.rect(ax + 3, 14, ax + 8, 19, (250, 222, 140))
+        cv.rect(ax + 5, 14, ax + 6, 19, (90, 60, 44))
+        cv.rect(ax - 1, 9, ax + 12, 10, thatch_l)
+    # chimneys
+    for cx in (12, w - 18):
+        cv.rect(cx, 0, cx + 5, 10, stone)
+        cv.rect(cx, 0, cx + 5, 1, stone_d)
+        cv.rect(cx + 4, 0, cx + 5, 10, stone_d)
+    cv.outline()
+    return snowy_roof(cv) if snow else cv
+
+
+def make_manor_interior():
+    save = lambda c, n: c.img.save(os.path.join(OUT, "in_" + n + ".png"))
+    # stairs going up (against the back wall)
+    cv = Canvas(24, 32)
+    for i in range(7):
+        y = 30 - i * 4
+        cv.rect(2 + i, y - 3, 21 - i, y, (176, 128, 84) if i % 2 == 0 else (160, 114, 74))
+        cv.rect(2 + i, y, 21 - i, y, (120, 82, 54))
+    cv.rect(0, 2, 1, 31, WOOD_D)
+    cv.rect(22, 2, 23, 31, WOOD_D)
+    cv.rect(8, 0, 15, 3, (40, 26, 22))
+    cv.outline()
+    save(cv, "stairs_up")
+    # opening in the floor with stairs going down + railing
+    cv = Canvas(28, 22)
+    cv.rect(2, 4, 25, 19, (40, 26, 22))
+    for i in range(4):
+        cv.rect(4 + i * 2, 6 + i * 3, 23 - i * 2, 7 + i * 3, (150, 104, 66))
+    cv.rect(0, 2, 27, 3, WOOD)
+    cv.rect(0, 2, 27, 2, WOOD_L)
+    for x in range(1, 27, 4):
+        cv.rect(x, 0, x, 3, WOOD_D)
+    cv.rect(0, 2, 1, 20, WOOD)
+    cv.rect(26, 2, 27, 20, WOOD)
+    cv.outline()
+    save(cv, "stairs_down")
+    # attic: wooden walls and dusty floor
+    sheet = Canvas(32, 32)
+    for f in range(2):
+        cv = Canvas(16, 32)
+        cv.rect(0, 0, 15, 28, (120, 84, 56))
+        for x in range(0, 16, 5):
+            cv.rect(x, 0, x, 28, (96, 66, 44))
+        cv.rect(0, 10, 15, 11, (90, 60, 40))
+        cv.rect(0, 29, 15, 31, (70, 46, 32))
+        if f == 1:
+            cv.rect(4, 4, 11, 10, (60, 40, 30))
+            cv.rect(5, 5, 10, 9, (110, 150, 190))
+            cv.rect(7, 5, 8, 9, (60, 40, 30))
+        sheet.paste(cv, f * 16, 0)
+    save(sheet, "wall_attic")
+    cv = Canvas(16, 16)
+    cv.rect(0, 0, 15, 15, (150, 116, 84))
+    for y in (3, 7, 11, 15):
+        cv.rect(0, y, 15, y, (126, 96, 70))
+    for (x, y) in ((3, 2), (11, 9), (6, 13)):
+        cv.px(x, y, (176, 160, 140))
+    save(cv, "floor_attic")
+    # treasure chest (gold) closed / open
+    for opened in (False, True):
+        cv = Canvas(20, 18)
+        gold, gold_d = (240, 200, 70), (190, 140, 40)
+        top = 7 if not opened else 8
+        cv.rect(1, top, 18, 16, (140, 70, 50))
+        cv.rect(1, 16, 18, 16, (100, 50, 36))
+        for x in (3, 9, 15):
+            cv.rect(x, top, x + 1, 16, gold)
+        if opened:
+            cv.rect(1, 1, 18, 6, (110, 56, 40))
+            cv.rect(2, 7, 17, 8, (60, 30, 24))
+            for x in range(3, 17, 2):
+                cv.px(x, 7, gold)
+        else:
+            cv.rect(1, 3, 18, 7, (170, 86, 60))
+            cv.rect(1, 3, 18, 3, gold)
+            cv.rect(8, 8, 11, 11, gold_d)
+            cv.px(9, 9, (255, 240, 160))
+        cv.outline()
+        save(cv, "treasure_open" if opened else "treasure")
+    # sofa 30x18 for the living room
+    cv = Canvas(30, 18)
+    cv.rect(1, 2, 28, 9, (120, 70, 110))
+    cv.rect(1, 9, 28, 14, (150, 90, 140))
+    cv.rect(1, 2, 3, 15, (110, 62, 100))
+    cv.rect(26, 2, 28, 15, (110, 62, 100))
+    cv.rect(4, 10, 14, 10, (176, 116, 166))
+    cv.rect(15, 10, 25, 10, (176, 116, 166))
+    cv.rect(2, 15, 3, 16, WOOD_D)
+    cv.rect(26, 15, 27, 16, WOOD_D)
+    cv.outline()
+    save(cv, "sofa")
+    # dusty boxes in the attic
+    cv = Canvas(16, 16)
+    cv.rect(1, 4, 14, 14, (180, 140, 90))
+    cv.rect(1, 4, 14, 5, (204, 166, 112))
+    cv.rect(7, 4, 8, 14, (150, 112, 70))
+    cv.outline()
+    save(cv, "box")
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     character_sheet("player", PLAYER)
@@ -1940,6 +2121,9 @@ def main():
     make_slime()
     season_props()
     make_interior()
+    make_mansion().img.save(os.path.join(OUT, "mansion.png"))
+    make_mansion(True).img.save(os.path.join(OUT, "mansion_winter.png"))
+    make_manor_interior()
     make_items()
     make_fx()
     make_ui()

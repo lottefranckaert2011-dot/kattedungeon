@@ -50,8 +50,8 @@ const TEXT := {
 	"refill": ["E: kogels erin", "E: add ammo"],
 	"help_title": ["HOE SPEEL JE?", "HOW TO PLAY"],
 	"help_text": [
-		"OVERDAG: hak bomen (hout), sla rotsen (steen) en doorzoek huizen en kratten (schroot, kogels, eten).\n'S NACHTS: zombies komen over de wegen het dorp in. Bouw barricades en overleef!\n\nWASD / ZQSD / pijltjes: lopen\nLinks klikken / spatie: bijl\nRechts klikken / F: schieten\n1-6: bouwen kiezen, klik om te plaatsen\nE: doorzoeken / winkel / auto   R: eten\nTab / muiswiel: ander geweer   N: nacht starten\n\nGa huizen binnen en doorzoek kasten. In je EIGEN HUIS (hartje) ben je veilig met je team. Red mensen die HELP! roepen, koop wapens en rijd met de bus naar een nieuw dorp!",
-		"DAY: chop trees (wood), break rocks (stone) and search houses and crates (scrap, ammo, food).\nNIGHT: zombies walk into the village along the roads. Build barricades and survive!\n\nWASD / arrows: move\nLeft click / space: axe\nRight click / F: shoot\n1-6: pick a building, click to place\nE: search / shop / car   R: eat\nTab / mouse wheel: switch gun   N: start night\n\nGo into houses and search cupboards. Your OWN HOME (heart sign) is safe for you and your team. Rescue people shouting HELP!, buy weapons and drive the van to a new village!"
+		"OVERDAG: hak bomen (hout), sla rotsen (steen) en doorzoek huizen en kratten (schroot, kogels, eten).\n'S NACHTS: zombies komen over de wegen het dorp in. Bouw barricades en overleef!\n\nWASD / ZQSD / pijltjes: lopen\nLinks klikken / spatie: bijl\nRechts klikken / F: schieten\n1-6: bouwen kiezen, klik om te plaatsen\nE: doorzoeken / winkel / auto   R: eten (honger!)\nTab / muiswiel: ander geweer   N: nacht starten\n\nGa huizen binnen en doorzoek kasten. In je EIGEN HUIS (hartje) ben je veilig met je team. Red mensen die HELP! roepen, koop wapens en rijd met de bus naar een nieuw dorp!",
+		"DAY: chop trees (wood), break rocks (stone) and search houses and crates (scrap, ammo, food).\nNIGHT: zombies walk into the village along the roads. Build barricades and survive!\n\nWASD / arrows: move\nLeft click / space: axe\nRight click / F: shoot\n1-6: pick a building, click to place\nE: search / shop / car   R: eat (hunger!)\nTab / mouse wheel: switch gun   N: start night\n\nGo into houses and search cupboards. Your OWN HOME (heart sign) is safe for you and your team. Rescue people shouting HELP!, buy weapons and drive the van to a new village!"
 	],
 	"back": ["TERUG", "BACK"],
 	"build_mode": ["Klik om te bouwen - rechts klikken stopt", "Click to build - right click cancels"],
@@ -117,6 +117,14 @@ const TEXT := {
 	"door_broken": ["De deur is kapot. Morgen weer heel.", "The door is broken. Fixed tomorrow."],
 	"door_broken_out": ["De deur is kapot! Snel naar buiten!", "The door broke! Get out fast!"],
 	"night_harder": ["Nacht %d: %d zombies, sterker dan gisteren!", "Night %d: %d zombies, stronger than yesterday!"],
+	"stairs_up": ["E: trap omhoog", "E: go upstairs"],
+	"stairs_down": ["E: trap omlaag", "E: go downstairs"],
+	"floor_0": ["Begane grond", "Ground floor"],
+	"floor_1": ["Eerste verdieping", "First floor"],
+	"floor_2": ["Zolder - zoek de schatkist!", "Attic - find the treasure chest!"],
+	"hungry": ["Je hebt honger! Druk op R om te eten", "You are hungry! Press R to eat"],
+	"starving": ["Honger!", "Starving!"],
+	"not_hungry": ["Je hebt geen honger", "You are not hungry"],
 	"sunrise": ["De zon komt op - de zombies verbranden!", "The sun rises - the zombies burn up!"],
 	"upgrade_iron": ["E: ijzer maken", "E: make it iron"],
 	"iron_done": ["IJzer!", "Iron!"],

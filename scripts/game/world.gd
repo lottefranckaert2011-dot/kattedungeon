@@ -41,7 +41,9 @@ var plaza := Vector2i(36, 28)
 var plaza_rect := Rect2i()
 var farm_rect := Rect2i()
 var inside = null          # the house Prop the player is in (or null)
-var interiors := {}        # house Prop -> Interior
+var interiors := {}        # house Prop -> Interior (ground floor)
+var inside_room = null     # the Interior (floor) the player is in
+var _room_count := 0
 
 
 func generate(seed_value: int, area_index := 0) -> void:
@@ -398,38 +400,39 @@ func can_place_prop(c: Vector2i, footprint: Array) -> bool:
 
 func _place_village() -> void:
 	# Houses stand around the square in different spots every time.
-	var kinds: Array = ["shop", "home"]
+	var kinds: Array = ["shop", "mansion" if info.get("mansion", false) else "home"]
 	var pool := ["house_red", "house_blue", "house_tan", "house_white"]
 	for i in int(info.get("houses", 7)):
 		kinds.append(pool[rng.randi() % pool.size()])
 	for k in kinds:
 		var best = null
 		var best_d := INF
-		for i in 160:
-			var tl := Vector2i(rng.randi_range(FOREST + 2, W - FOREST - 6), rng.randi_range(FOREST + 3, H - FOREST - 7))
-			if not _house_lot_ok(tl):
+		var hs := Prop.house_size(k)
+		for i in 200:
+			var tl := Vector2i(rng.randi_range(FOREST + 2, W - FOREST - hs.x - 2), rng.randi_range(FOREST + 3, H - FOREST - hs.y - 3))
+			if not _house_lot_ok(tl, hs):
 				continue
-			var d := Vector2(tl + Vector2i(2, 4)).distance_to(Vector2(plaza)) + rng.randf() * 8.0
+			var d := Vector2(tl + Vector2i(hs.x / 2, hs.y)).distance_to(Vector2(plaza)) + rng.randf() * 8.0
 			if d < best_d:
 				best_d = d
 				best = tl
 		if best == null:
 			continue
 		var tl: Vector2i = best
-		var house := add_prop(k, tl + Vector2i(0, 3))
+		var house := add_prop(k, tl + Vector2i(0, hs.y - 1))
 		houses.append(house)
 		if k == "shop":
 			shop = house
 			_add_shopkeeper(house.position + Vector2(-22, 6))
-		elif k == "home":
+		elif k == "home" or k == "mansion":
 			home = house
 		# little dirt patch in front of the door
-		for x in range(tl.x + 1, tl.x + 3):
-			set_g(Vector2i(x, tl.y + 4), G.DIRT)
-			reserved[Vector2i(x, tl.y + 4)] = true
-			reserved[Vector2i(x, tl.y + 5)] = true
-		if rng.randf() < 0.5 and can_place_prop(tl + Vector2i(-1, 3), [Vector2i.ZERO]):
-			add_prop("crate" if rng.randf() < 0.5 else "barrel", tl + Vector2i(-1, 3))
+		for x in range(tl.x + hs.x / 2 - 1, tl.x + hs.x / 2 + 1):
+			set_g(Vector2i(x, tl.y + hs.y), G.DIRT)
+			reserved[Vector2i(x, tl.y + hs.y)] = true
+			reserved[Vector2i(x, tl.y + hs.y + 1)] = true
+		if rng.randf() < 0.5 and can_place_prop(tl + Vector2i(-1, hs.y - 1), [Vector2i.ZERO]):
+			add_prop("crate" if rng.randf() < 0.5 else "barrel", tl + Vector2i(-1, hs.y - 1))
 
 	# Square: your van and a well.
 	van = add_prop("van", Vector2i(plaza_rect.position.x + 1, plaza_rect.position.y + 1))
@@ -464,9 +467,9 @@ func _place_village() -> void:
 			placed += 1
 
 
-func _house_lot_ok(tl: Vector2i) -> bool:
-	for y in range(tl.y - 1, tl.y + 6):
-		for x in range(tl.x - 1, tl.x + 5):
+func _house_lot_ok(tl: Vector2i, hs := Vector2i(4, 4)) -> bool:
+	for y in range(tl.y - 1, tl.y + hs.y + 2):
+		for x in range(tl.x - 1, tl.x + hs.x + 1):
 			var c := Vector2i(x, y)
 			if not in_bounds(c) or g_at(c) != G.GRASS or reserved.has(c) or occupied.has(c):
 				return false
@@ -638,11 +641,15 @@ func _add_shopkeeper(pos: Vector2) -> void:
 ## The room behind a house door (built the first time you go in).
 func get_interior(h) -> Interior:
 	if not interiors.has(h):
-		var it := Interior.new()
-		it.y_sort_enabled = true
-		add_child(it)
-		it.setup(self, h, interiors.size())
-		interiors[h] = it
+		var floors: Array = []
+		for f in int(h.def.get("floors", 1)):
+			var it := Interior.new()
+			it.y_sort_enabled = true
+			add_child(it)
+			it.setup(self, h, _room_count, f, floors)
+			_room_count += 1
+			floors.append(it)
+		interiors[h] = floors[0]
 	return interiors[h]
 
 
@@ -651,7 +658,8 @@ func new_day(n: int) -> void:
 		if h.door:
 			h.door.repair()
 	for h in interiors:
-		interiors[h].refill()
+		for room in interiors[h].floors:
+			room.refill()
 	day = n
 	for e in entities.get_children():
 		if e is Prop:

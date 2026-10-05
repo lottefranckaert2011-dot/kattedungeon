@@ -8,6 +8,7 @@ signal inventory_changed
 signal died
 signal message(text)
 signal weapons_changed
+signal hunger_changed(hunger)
 
 const SPEED := 72.0
 const MAX_HP := 100.0
@@ -40,6 +41,14 @@ var _swing_t := 0.0
 var _gun_show := 0.0
 var _chop_tick := 0
 var _slow := 0.0
+var hunger := 100.0          # 100 = full, 0 = starving
+var _starve_t := 0.0
+var _hunger_warned := false
+var _eat_icon: Sprite2D
+
+const HUNGER_PER_SEC := 100.0 / 260.0   # empty after a bit more than 4 minutes
+const EAT_HUNGER := 45.0
+const EAT_HEAL := 15.0
 
 
 func _ready() -> void:
@@ -105,6 +114,7 @@ func _physics_process(delta: float) -> void:
 		var k := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 		if k != Vector2.ZERO:
 			input = k
+	_update_hunger(delta)
 	_slow = maxf(0.0, _slow - delta)
 	velocity = input * SPEED * (0.55 if _slow > 0.0 else 1.0)
 	move_and_slide()
@@ -310,13 +320,62 @@ func eat() -> void:
 		message.emit(Lang.t("no_food"))
 		Audio.play("error", -8.0)
 		return
-	if hp >= MAX_HP:
-		message.emit(Lang.t("full_hp"))
+	if hp >= MAX_HP and hunger >= 90.0:
+		message.emit(Lang.t("not_hungry"))
 		return
 	inv["food"] -= 1
 	inventory_changed.emit()
-	heal(FOOD_HEAL, true)
+	hunger = minf(100.0, hunger + EAT_HUNGER)
+	_hunger_warned = false
+	hunger_changed.emit(hunger)
+	heal(EAT_HEAL, true)
 	Audio.play("eat", -4.0)
+	_show_eating()
+
+
+## Hunger slowly goes down. When it is empty you lose health until you eat.
+func _update_hunger(delta: float) -> void:
+	var before := hunger
+	hunger = maxf(0.0, hunger - HUNGER_PER_SEC * delta)
+	if int(before) != int(hunger):
+		hunger_changed.emit(hunger)
+	if hunger < 25.0 and not _hunger_warned:
+		_hunger_warned = true
+		message.emit(Lang.t("hungry"))
+	if hunger <= 0.0:
+		_starve_t -= delta
+		if _starve_t <= 0.0:
+			_starve_t = 2.0
+			_lose_hp(3.0)
+			Fx.text(world, global_position + Vector2(0, -18), Lang.t("starving"), Color(1.0, 0.7, 0.4))
+
+
+func _lose_hp(amount: float) -> void:
+	hp -= amount
+	hp_changed.emit(hp, MAX_HP)
+	main.hurt_flash()
+	if hp <= 0.0:
+		hp = 0.0
+		alive = false
+		var tw := create_tween()
+		tw.tween_property(sprite, "rotation", PI / 2, 0.3)
+		tw.parallel().tween_property(sprite, "position:y", 5.0, 0.3)
+		died.emit()
+
+
+func _show_eating() -> void:
+	if _eat_icon == null:
+		_eat_icon = Sprite2D.new()
+		_eat_icon.texture = Res.icon("food")
+		add_child(_eat_icon)
+	_eat_icon.position = Vector2(0, -28)
+	_eat_icon.modulate.a = 1.0
+	_eat_icon.visible = true
+	var tw := create_tween()
+	tw.tween_property(_eat_icon, "scale", Vector2(1.3, 1.3), 0.12)
+	tw.tween_property(_eat_icon, "scale", Vector2(0.6, 0.6), 0.25)
+	tw.parallel().tween_property(_eat_icon, "modulate:a", 0.0, 0.25)
+	Fx.text(world, global_position + Vector2(0, -22), "Nom nom!", Color(0.7, 1.0, 0.6))
 
 
 ## Hit by spitter slime: walk slower for a moment.
