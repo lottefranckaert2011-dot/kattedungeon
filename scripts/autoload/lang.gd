@@ -7,6 +7,8 @@ const TEXT := {
 	"title": ["ZOMBIE DORP", "ZOMBIE VILLAGE"],
 	"subtitle": ["Verzamel. Bouw. Overleef.", "Gather. Build. Survive."],
 	"play": ["SPELEN", "PLAY"],
+	"continue": ["VERDER SPELEN", "CONTINUE"],
+	"saved": ["Opgeslagen", "Saved"],
 	"how": ["HOE SPEEL JE?", "HOW TO PLAY"],
 	"sound_on": ["GELUID: AAN", "SOUND: ON"],
 	"sound_off": ["GELUID: UIT", "SOUND: OFF"],

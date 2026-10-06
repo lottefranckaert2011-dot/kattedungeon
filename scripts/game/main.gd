@@ -35,6 +35,7 @@ var _seen_types := {}
 var night_len := 90.0
 var _heal_t := 0.0
 var _fading := false
+var world_seed := 0
 
 var is_night := false
 var day_num := 1
@@ -107,7 +108,8 @@ func _ready() -> void:
 
 	menus = Menus.new()
 	add_child(menus)
-	menus.play_pressed.connect(_start_game)
+	menus.play_pressed.connect(_new_game)
+	menus.continue_pressed.connect(_continue_game)
 	menus.resume_pressed.connect(_resume)
 	menus.menu_pressed.connect(_to_menu)
 	menus.again_pressed.connect(_again)
@@ -145,7 +147,7 @@ func _setup_input() -> void:
 
 
 ## (Re)builds the map for an area and puts the player in it.
-func _build_world(area_index: int) -> void:
+func _build_world(area_index: int, seed_value := -1) -> void:
 	if world:
 		for a in allies:
 			if a.get_parent():
@@ -161,7 +163,8 @@ func _build_world(area_index: int) -> void:
 	world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(world)
 	move_child(world, 0)
-	world.generate(randi(), area)
+	world_seed = randi() if seed_value < 0 else seed_value
+	world.generate(world_seed, area)
 	world.day = day_num
 	player.world = world
 	player.position = world.player_start
@@ -241,6 +244,12 @@ func _enter_menu() -> void:
 	CrazySDK.gameplay_stop()
 
 
+## "Play" in the menu: a brand new run (an old save is thrown away).
+func _new_game() -> void:
+	Save.clear_run()
+	_start_game()
+
+
 func _start_game() -> void:
 	state = State.PLAY
 	world.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -303,6 +312,7 @@ func _on_ad_finished() -> void:
 
 func _on_player_died() -> void:
 	state = State.OVER
+	Save.clear_run()
 	weather.set_mode("clear")
 	build_kind = ""
 	ghost.visible = false
@@ -604,6 +614,7 @@ func _end_night() -> void:
 	Audio.play_music("day")
 	hud.show_message("%s  +%d  (+%d %s)" % [Lang.t("day_comes"), 250, bonus, Lang.t("coins")], 3.0, Color(0.7, 1.0, 0.6))
 	hud.set_score(_score())
+	_autosave()
 	# A natural break: good moment for a CrazyGames midgame ad.
 	CrazySDK.request_midgame()
 
@@ -1054,6 +1065,7 @@ func _travel() -> void:
 	state = State.PLAY
 	Audio.play("day_start", -2.0, 0.0)
 	hud.show_message("%s  +%d" % [_area_title(), AREA_BONUS], 3.0, Color(0.7, 1.0, 0.6))
+	_autosave()
 
 
 ## Arrow at the screen edge pointing to the nearest survivor waiting for help.
@@ -1237,3 +1249,104 @@ func _change_floor(dir: int) -> void:
 			a.place_near(pos + Vector2(0, -10))
 		_camera_to_room(target)
 		hud.show_message(Lang.t("floor_%d" % target_i), 1.8, Color(0.85, 0.95, 1.0)))
+
+
+# ------------------------------------------------------------------ save / continue
+
+## Everything needed to continue this run later (saved at the start of a day).
+func _snapshot() -> Dictionary:
+	var team: Array = []
+	for a in allies:
+		team.append({"kind": a.kind, "hp": a.hp})
+	var builds: Array = []
+	for c in world.structures:
+		var st: Structure = world.structures[c]
+		builds.append({"kind": st.kind, "x": c.x, "y": c.y, "hp": st.hp, "ammo": st.ammo})
+	return {
+		"version": 1,
+		"area": area, "seed": world_seed, "day_num": day_num, "night_num": night_num,
+		"nights_survived": nights_survived, "kills": kills, "kill_score": kill_score,
+		"areas_done": areas_done, "van_repaired": van_repaired, "rescued": rescued_kinds,
+		"seen": _seen_types.keys(), "team": team, "structures": builds,
+		"player": {"hp": player.hp, "hunger": player.hunger, "inv": player.inv,
+			"owned": player.owned, "melee": player.melee, "gun": player.gun},
+	}
+
+
+func _autosave() -> void:
+	if state == State.OVER or not player.alive:
+		return
+	Save.save_run(_snapshot())
+	Fx.text(world, player.global_position + Vector2(0, -30), Lang.t("saved"), Color(0.75, 0.9, 1.0))
+
+
+## "Continue" in the menu: rebuild the saved area and put everything back.
+func _continue_game() -> void:
+	var d := Save.load_run()
+	if d.is_empty():
+		_new_game()
+		return
+	day_num = int(d.get("day_num", 1))
+	night_num = int(d.get("night_num", 0))
+	nights_survived = int(d.get("nights_survived", 0))
+	kills = int(d.get("kills", 0))
+	kill_score = int(d.get("kill_score", 0))
+	areas_done = int(d.get("areas_done", 0))
+	van_repaired = bool(d.get("van_repaired", false))
+	rescued_kinds = Array(d.get("rescued", []))
+	for t in d.get("seen", []):
+		_seen_types[t] = true
+
+	# your team
+	for a in allies:
+		a.queue_free()
+	allies.clear()
+	for m in d.get("team", []):
+		var sv := Survivor.new()
+		sv.setup(world, str(m["kind"]))
+		sv.hp = float(m.get("hp", sv.max_hp))
+		allies.append(sv)
+
+	# the same village again (same seed), with your buildings
+	_build_world(int(d.get("area", 0)), int(d.get("seed", 0)))
+	for i in allies.size():
+		allies[i].join(i)
+		allies[i].downed_changed.connect(_on_ally_downed)
+	for b in d.get("structures", []):
+		var c := Vector2i(int(b["x"]), int(b["y"]))
+		if world.can_build(c):
+			var st := world.add_structure(str(b["kind"]), c)
+			st.hp = float(b.get("hp", st.max_hp))
+			st.ammo = int(b.get("ammo", st.ammo))
+
+	# the player
+	var pd: Dictionary = d.get("player", {})
+	for k in pd.get("inv", {}):
+		player.inv[k] = int(pd["inv"][k])
+	player.owned = Array(pd.get("owned", ["axe", "pistol"]))
+	player.equip(str(pd.get("melee", "axe")))
+	player.equip(str(pd.get("gun", "pistol")))
+	player.hp = float(pd.get("hp", Player.MAX_HP))
+	player.hunger = float(pd.get("hunger", 100.0))
+	player.inventory_changed.emit()
+	player.hp_changed.emit(player.hp, Player.MAX_HP)
+	player.hunger_changed.emit(player.hunger)
+
+	# start that morning
+	state = State.PLAY
+	world.process_mode = Node.PROCESS_MODE_PAUSABLE
+	hud.visible = true
+	menus.hide_all()
+	get_tree().paused = false
+	is_night = false
+	world.is_night = false
+	world.day = day_num
+	phase_time = 3.0
+	phase_len = DAY_LENGTH
+	_hint_i = 99
+	Audio.play_music("day")
+	hud.set_area(_area_title())
+	hud.set_score(_score())
+	hud.show_message("%s - %s %d" % [_area_title(), Lang.t("day"), day_num], 3.0, Color(0.7, 1.0, 0.6))
+	CrazySDK.gameplay_start()
+	_update_phase_ui()

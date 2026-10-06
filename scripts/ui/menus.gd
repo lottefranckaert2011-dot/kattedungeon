@@ -3,6 +3,7 @@ extends CanvasLayer
 ## Main menu, help screen, pause menu and game-over screen.
 
 signal play_pressed
+signal continue_pressed
 signal resume_pressed
 signal menu_pressed
 signal again_pressed
@@ -13,6 +14,7 @@ var help_box: Control
 var pause_box: Control
 var over_box: Control
 var best_label: Label
+var continue_btn: Button
 var over_stats: Label
 var over_new: Label
 var _sound_buttons: Array[Button] = []
@@ -89,6 +91,9 @@ func _build_main() -> void:
 		tr.custom_minimum_size = Vector2(20, 28)
 		row.add_child(tr)
 		_villagers.append([tr, at, tex])
+	continue_btn = UITheme.button(Lang.t("continue"), 160)
+	continue_btn.pressed.connect(func(): continue_pressed.emit())
+	v.add_child(_centered(continue_btn))
 	var play := UITheme.button(Lang.t("play"), 120)
 	play.pressed.connect(func(): play_pressed.emit())
 	v.add_child(_centered(play))
@@ -197,6 +202,11 @@ func hide_all() -> void:
 func show_main() -> void:
 	hide_all()
 	_refresh_sound()
+	var run := Save.load_run()
+	continue_btn.visible = not run.is_empty()
+	if not run.is_empty():
+		continue_btn.text = "%s (%s %d, %s %d)" % [Lang.t("continue"), Lang.t("day"), int(run.get("day_num", 1)),
+			Lang.t("area"), int(run.get("area", 0)) + 1]
 	main_box.visible = true
 	dim.visible = true
 	dim.color.a = 0.45

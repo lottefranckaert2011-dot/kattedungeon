@@ -59,6 +59,13 @@ Zombies vallen ook je teamleden aan. Raakt iemand gewond, dan ligt die even neer
 - Zombies weten waar je bent en **bonken op de deur**. Bovenin zie je hoe sterk de deur nog is.
   Gaat hij kapot, dan moet je naar buiten. Elke ochtend is de deur weer heel. Tip: zet barricades voor je deur!
 
+### Opslaan en verder spelen
+
+Het spel **slaat vanzelf op** elke ochtend (als je de nacht overleeft) en als je met de bus in een nieuw landje
+aankomt. In het menu staat dan **"VERDER SPELEN (Dag 5, Gebied 2)"**: je gaat verder in **hetzelfde dorp**,
+met je spullen, wapens, leven, honger, je team, de bus en je barricades. Ga je **dood**, dan wordt de opslag
+gewist en begin je opnieuw. Met **SPELEN** begin je altijd een nieuw spel.
+
 ### Honger
 
 Onder je levensbalk staat een **oranje hongerbalk**. Die loopt langzaam leeg (in ongeveer 4 minuten).

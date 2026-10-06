@@ -37,3 +37,30 @@ func submit(score: int, night: int) -> bool:
 	best_night = max(best_night, night)
 	write()
 	return is_new
+
+
+# ---------------------------------------------------------------- the current run
+# Saved every morning and after driving to a new area. Deleted when you die.
+
+const RUN_PATH := "user://zombie_dorp_run.json"
+
+func has_run() -> bool:
+	return FileAccess.file_exists(RUN_PATH)
+
+func save_run(data: Dictionary) -> void:
+	var f := FileAccess.open(RUN_PATH, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(data))
+
+func load_run() -> Dictionary:
+	if not has_run():
+		return {}
+	var f := FileAccess.open(RUN_PATH, FileAccess.READ)
+	if f == null:
+		return {}
+	var d = JSON.parse_string(f.get_as_text())
+	return d if d is Dictionary else {}
+
+func clear_run() -> void:
+	if has_run():
+		DirAccess.remove_absolute(RUN_PATH)
