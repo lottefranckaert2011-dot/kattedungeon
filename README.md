@@ -173,6 +173,32 @@ Er staat ook een GitHub Actions workflow (`.github/workflows/export-web.yml`) di
 
 Buiten de browser (in de Godot-editor) doen alle SDK-aanroepen gewoon niets, dus je kunt normaal testen met F5.
 
+### Covers en preview-video's (map `store/`)
+
+Klaar om te uploaden in het Developer Portal:
+
+| Bestand | Waarvoor |
+| --- | --- |
+| `store/cover_landscape_1920x1080.png` | Cover liggend (16:9) |
+| `store/cover_portrait_800x1200.png` | Cover staand (2:3) |
+| `store/cover_square_800x800.png` | Cover vierkant (1:1) |
+| `store/video_landscape_1920x1080.mp4` | Preview-video liggend, 18 s, 1080p, zonder geluid |
+| `store/video_portrait_1080x1620.mp4` | Preview-video staand (2:3), 18 s, 1080p, zonder geluid |
+
+Zoals CrazyGames vraagt: op de covers staat alleen de titel (geen randen, logo's of andere tekst),
+en de video's beginnen met een stilstaand beeld van de cover, daarna echte gameplay, zonder muis,
+zwarte overgangen of reclametekst.
+
+Nieuwe naam voor het spel? Maak alles opnieuw:
+
+```bash
+python3 tools/make_covers.py "NIEUWE NAAM"            # covers (Python + Pillow + numpy)
+GODOT=/pad/naar/godot4.3 tools/make_videos.sh          # video's (ook ffmpeg nodig)
+```
+
+De video's worden opgenomen met de Movie Maker van Godot; `tests/trailer_runner.gd` speelt
+daarvoor automatisch een stukje spel (muur bouwen, nacht, gevecht, zonsopgang).
+
 ## Projectstructuur
 
 ```
@@ -188,6 +214,7 @@ assets/audio/               muziek + geluidseffecten (CC0, zie CREDITS.md)
 assets/fonts/               Kenney pixel fonts (CC0)
 tools/                      sprite/geluid-generators en export-script
 tests/screenshot_runner.*   speelt het spel automatisch en maakt screenshots
+store/                      covers en preview-video's voor CrazyGames
 ```
 
 ### Graphics aanpassen
