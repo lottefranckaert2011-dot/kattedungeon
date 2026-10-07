@@ -5,6 +5,9 @@ set -e
 cd "$(dirname "$0")/.."
 GODOT=${GODOT:-godot}
 mkdir -p build/web
+touch build/.gdignore   # Godot must not import the exported files
+find build/web -name '*.import' -delete
+rm -f build/zombie-dorp-web.zip
 "$GODOT" --headless --import >/dev/null 2>&1 || true
 "$GODOT" --headless --export-release "Web (CrazyGames)" build/web/index.html
 (cd build/web && zip -q -r ../zombie-dorp-web.zip .)
